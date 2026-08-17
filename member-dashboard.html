@@ -7,12 +7,12 @@
 <title>OGFZA Member Portal — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="api.js"></script>
 <script>
-  // Token now comes from sessionStorage (set by login.html) instead of
-  // server-side templating, since this is a plain static page. See
-  // api.js for getToken()/saveToken()/clearToken().
-  var SESSION_TOKEN = getToken();
+  // Passed in server-side from doGet() via templating - do not read
+  // the token from window.location.search, it will not reliably be
+  // there. See the comment in Code.gs's doGet() member branch.
+  var SESSION_TOKEN = '<?!= token ?>';
+  var WEB_APP_URL = '<?!= webAppUrl ?>';
 </script>
 <style>
   :root{
@@ -35,43 +35,24 @@
   *{box-sizing:border-box; margin:0; padding:0;}
   .hidden{ display:none !important; }
   body{
-    background:#dcded8;
+    background:var(--paper);
     font-family:'IBM Plex Sans', sans-serif;
     color:var(--ink);
-    display:flex;
-    justify-content:center;
-    padding:40px 16px;
     min-height:100vh;
   }
   .device{
-    width:390px;
+    width:100%;
     max-width:100%;
     background:var(--paper);
-    border-radius:36px;
-    box-shadow:0 30px 60px rgba(18,51,44,0.2);
-    overflow:hidden;
-    border:8px solid #0d0f0e;
     position:relative;
   }
-  .statusbar{
-    height:30px;
-    background:var(--paper);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:0 22px;
-    font-size:12px;
-    font-weight:500;
-    color:var(--ink);
-  }
   .screen{
-    height:730px;
-    overflow-y:auto;
+    height:auto;
+    overflow:visible;
     display:none;
     padding-bottom:90px;
   }
   .screen.active{display:block;}
-  .screen::-webkit-scrollbar{display:none;}
 
   .center-state{
     height:730px;
@@ -160,7 +141,7 @@
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:10px;
-    margin-top:-34px;
+    margin-top:16px;
     padding:0 20px;
   }
   .stat-card{
@@ -273,13 +254,13 @@
   .schedule-wrap{ margin-top:10px; }
   .schedule-loading{ text-align:center; padding:16px; color:var(--ink-soft); font-size:12px; }
   .sched-table{
-    border:1px solid var(--line); border-radius:10px; overflow:hidden;
-    font-size:10.5px;
+    border:1px solid var(--line); border-radius:10px;
+    font-size:10.5px; overflow-x:auto;
   }
   .sched-row{
-    display:grid; grid-template-columns:1.3fr 1fr 0.8fr 1fr 1fr 1.1fr;
+    display:grid; grid-template-columns:1.1fr 1fr 0.8fr 1fr 1fr 1fr;
     gap:4px; padding:8px 6px; border-bottom:1px solid var(--line);
-    align-items:center;
+    align-items:center; min-width:480px;
   }
   .sched-row:last-child{ border-bottom:none; }
   .sched-head{
@@ -331,7 +312,7 @@
 
   /* ============ DESKTOP ============ */
   @media (min-width:900px){
-    body{ padding:48px 32px; align-items:flex-start; }
+    body{ display:flex; justify-content:center; padding:48px 32px; align-items:flex-start; }
     .device{
       width:100%;
       max-width:1120px;
@@ -370,7 +351,6 @@
 <body>
 
 <div class="device">
-  <div class="statusbar"><span>9:41</span><span>OGFZA COOP</span></div>
 
   <!-- ============ LOADING / ERROR ============ -->
   <div id="loadingState" class="center-state">
@@ -667,8 +647,8 @@ function toggleSchedule(loanId, safeId) {
   wrap.classList.remove('hidden');
   btn.textContent = 'Hide repayment schedule';
 
-  callApi('getLoanSchedule', { token: SESSION_TOKEN, loanId: loanId })
-    .then(function (result) {
+  google.script.run
+    .withSuccessHandler(function (result) {
       if (!result.success) {
         wrap.innerHTML = '<div class="empty-note">' + result.error + '</div>';
         return;
@@ -677,9 +657,10 @@ function toggleSchedule(loanId, safeId) {
       scheduleCache[loanId] = html;
       wrap.innerHTML = html;
     })
-    .catch(function () {
+    .withFailureHandler(function () {
       wrap.innerHTML = '<div class="empty-note">Could not load the schedule. Try again.</div>';
-    });
+    })
+    .getLoanSchedule(SESSION_TOKEN, loanId);
 }
 
 function statusPillForSchedule(status) {
@@ -687,6 +668,14 @@ function statusPillForSchedule(status) {
   if (status === 'Missed') return 'sched-pill sched-bad';
   if (status === 'Skipped (Excused)') return 'sched-pill sched-pending';
   return 'sched-pill sched-upcoming';
+}
+
+// Short month label (e.g. "JUL 2026"), used only inside the tight
+// 6-column schedule table where the full "JULY 2026" format used
+// everywhere else on the dashboard doesn't leave enough room for the
+// other five columns on a real phone width.
+function shortMonthLabel(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
 }
 
 function scheduleTableHtml(rows) {
@@ -701,7 +690,7 @@ function scheduleTableHtml(rows) {
     '</div>';
   var body = rows.map(function (r) {
     var d = safeDate(r.month);
-    var label = d ? monthLabel(d) : r.month;
+    var label = d ? shortMonthLabel(d) : r.month;
     return '' +
       '<div class="sched-row">' +
         '<span>' + label + '</span>' +
@@ -846,17 +835,18 @@ function loadDashboard() {
     return;
   }
 
-  callApi('getMemberDashboardData', { token: token })
-    .then(function (result) {
+  google.script.run
+    .withSuccessHandler(function (result) {
       if (!result.success) {
         showError(result.error);
         return;
       }
       renderDashboard(result);
     })
-    .catch(function () {
+    .withFailureHandler(function () {
       showError('Something went wrong loading your dashboard.');
-    });
+    })
+    .getMemberDashboardData(token);
 }
 
 function showError(message) {
@@ -884,7 +874,13 @@ function renderDashboard(result) {
   document.getElementById('statActiveLoans').textContent = profile.activeLoans !== undefined && profile.activeLoans !== '' ? profile.activeLoans : loans.filter(isActiveLoan).length;
   document.getElementById('statStatus').textContent = profile.status || '—';
   document.getElementById('statEquity').textContent = formatNaira(profile.equity);
-  document.getElementById('statMonthly').textContent = formatNaira(profile.monthlyDeduction);
+
+  // Use the same computed total the Deduction Slip shows (contribution
+  // plan + active loan repayment), not profile.monthlyDeduction - that
+  // raw sheet field only tracks the loan portion and silently ignores
+  // CCCF/Equity/Thrift, understating what actually comes out of payroll.
+  var slip = computeDeductionSlip(profile, loans, plan);
+  document.getElementById('statMonthly').textContent = formatNaira(slip.total);
 
   var activeLoans = loans.filter(isActiveLoan);
   var homeLoanCard = document.getElementById('homeLoanCard');
@@ -894,7 +890,6 @@ function renderDashboard(result) {
     homeLoanCard.innerHTML = '<div class="card"><div class="empty-note">No active loan on record</div></div>';
   }
 
-  var slip = computeDeductionSlip(profile, loans, plan);
   document.getElementById('homeSlipCard').innerHTML = slipCardHtml(slip);
 
   savingsHistoryHtml(result.history);
@@ -942,9 +937,8 @@ function logout() {
   // Actually revoke the token server-side, not just redirect - a
   // plain redirect left the old token still valid, so pressing back
   // could restore access without logging in again.
-  callApi('logoutSession', { token: SESSION_TOKEN });
-  clearToken();
-  window.location.href = 'login.html';
+  google.script.run.logoutSession(SESSION_TOKEN);
+  window.top.location.href = WEB_APP_URL + '?page=login';
 }
 
 // If the browser restores this page from back-forward cache (bfcache)
