@@ -7,12 +7,13 @@
 <title>OGFZA Member Portal — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="api.js"></script>
 <script>
-  // Passed in server-side from doGet() via templating - do not read
-  // the token from window.location.search, it will not reliably be
-  // there. See the comment in Code.gs's doGet() member branch.
-  var SESSION_TOKEN = '<?!= token ?>';
-  var WEB_APP_URL = '<?!= webAppUrl ?>';
+  // Token comes from sessionStorage (set by login.html via saveToken()),
+  // not from server-side templating - this page is served as a static
+  // file from GitHub Pages, not by Apps Script's doGet(). See api.js
+  // for saveToken/getToken and the callApi() fetch wrapper.
+  var SESSION_TOKEN = getToken();
 </script>
 <style>
   :root{
@@ -647,8 +648,8 @@ function toggleSchedule(loanId, safeId) {
   wrap.classList.remove('hidden');
   btn.textContent = 'Hide repayment schedule';
 
-  google.script.run
-    .withSuccessHandler(function (result) {
+  callApi('getLoanSchedule', { token: SESSION_TOKEN, loanId: loanId })
+    .then(function (result) {
       if (!result.success) {
         wrap.innerHTML = '<div class="empty-note">' + result.error + '</div>';
         return;
@@ -657,10 +658,9 @@ function toggleSchedule(loanId, safeId) {
       scheduleCache[loanId] = html;
       wrap.innerHTML = html;
     })
-    .withFailureHandler(function () {
+    .catch(function () {
       wrap.innerHTML = '<div class="empty-note">Could not load the schedule. Try again.</div>';
-    })
-    .getLoanSchedule(SESSION_TOKEN, loanId);
+    });
 }
 
 function statusPillForSchedule(status) {
@@ -835,18 +835,17 @@ function loadDashboard() {
     return;
   }
 
-  google.script.run
-    .withSuccessHandler(function (result) {
+  callApi('getMemberDashboardData', { token: token })
+    .then(function (result) {
       if (!result.success) {
         showError(result.error);
         return;
       }
       renderDashboard(result);
     })
-    .withFailureHandler(function () {
+    .catch(function () {
       showError('Something went wrong loading your dashboard.');
-    })
-    .getMemberDashboardData(token);
+    });
 }
 
 function showError(message) {
@@ -937,8 +936,9 @@ function logout() {
   // Actually revoke the token server-side, not just redirect - a
   // plain redirect left the old token still valid, so pressing back
   // could restore access without logging in again.
-  google.script.run.logoutSession(SESSION_TOKEN);
-  window.top.location.href = WEB_APP_URL + '?page=login';
+  callApi('logoutSession', { token: SESSION_TOKEN }).catch(function () {});
+  clearToken();
+  window.top.location.href = 'login.html';
 }
 
 // If the browser restores this page from back-forward cache (bfcache)
