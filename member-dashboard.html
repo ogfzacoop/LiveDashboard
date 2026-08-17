@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OGFZA Member Portal — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="api.js"></script>
+<script>
+  // Token now comes from sessionStorage (set by login.html) instead of
+  // server-side templating, since this is a plain static page. See
+  // api.js for getToken()/saveToken()/clearToken().
+  var SESSION_TOKEN = getToken();
+</script>
+<style>
+  :root{
+    --paper:#F1F3EE;
+    --paper-raised:#FFFFFF;
+    --ink:#182420;
+    --ink-soft:#5B655F;
+    --primary:#3A4A46;
+    --primary-soft:#57685F;
+    --brass:#9A9186;
+    --brass-soft:#E7E4DC;
+    --line:#DCE0D6;
+    --good:#3E7A4F;
+    --good-bg:#E5F0E6;
+    --closed:#7A7268;
+    --closed-bg:#EFEDE8;
+    --err:#B3432B;
+    --err-bg:#F7E7E2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  .hidden{ display:none !important; }
+  body{
+    background:#dcded8;
+    font-family:'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+    min-height:100vh;
+  }
+  .device{
+    width:390px;
+    max-width:100%;
+    background:var(--paper);
+    border-radius:36px;
+    box-shadow:0 30px 60px rgba(18,51,44,0.2);
+    overflow:hidden;
+    border:8px solid #0d0f0e;
+    position:relative;
+  }
+  .statusbar{
+    height:30px;
+    background:var(--paper);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 22px;
+    font-size:12px;
+    font-weight:500;
+    color:var(--ink);
+  }
+  .screen{
+    height:730px;
+    overflow-y:auto;
+    display:none;
+    padding-bottom:90px;
+  }
+  .screen.active{display:block;}
+  .screen::-webkit-scrollbar{display:none;}
+
+  .center-state{
+    height:730px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding:0 30px;
+    text-align:center;
+  }
+  .spinner{
+    width:26px; height:26px; border-radius:50%;
+    border:3px solid var(--brass-soft);
+    border-top-color:var(--primary-soft);
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .center-state .msg{ font-size:13px; color:var(--ink-soft); }
+  .center-state.error .msg{ color:var(--err); }
+  .center-state .retry{
+    margin-top:6px;
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    font-size:12.5px;
+    font-weight:600;
+    padding:9px 18px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+
+  .topbar{
+    background:var(--primary);
+    color:#fff;
+    padding:22px 20px 26px;
+    position:relative;
+  }
+  .topbar .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    color:#C9CFC9;
+    text-transform:uppercase;
+  }
+  .topbar h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:22px;
+    margin-top:6px;
+  }
+  .topbar .sub{
+    font-size:12.5px;
+    color:#C7CEC9;
+    margin-top:4px;
+  }
+  .badge{
+    display:inline-block;
+    margin-top:12px;
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.22);
+    color:#fff;
+    font-size:10.5px;
+    padding:4px 10px;
+    border-radius:20px;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:0.05em;
+  }
+  .badge.tier{
+    background:rgba(255,255,255,0.9);
+    color:var(--primary);
+    border:none;
+    font-weight:600;
+  }
+
+  .section{padding:18px 20px 4px;}
+  .section-title{
+    font-family:'Fraunces', serif;
+    font-size:15px;
+    font-weight:600;
+    color:var(--primary);
+    margin-bottom:10px;
+  }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:-34px;
+    padding:0 20px;
+  }
+  .stat-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 14px;
+  }
+  .stat-card .label{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    font-weight:500;
+  }
+  .stat-card .value{
+    font-family:'Fraunces', serif;
+    font-size:19px;
+    font-weight:600;
+    color:var(--primary);
+    margin-top:4px;
+  }
+
+  .card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .row-between{display:flex; justify-content:space-between; align-items:center;}
+  .row-title{font-size:14px; font-weight:600; color:var(--ink);}
+  .row-sub{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+  .pill{
+    font-size:10.5px;
+    font-weight:600;
+    padding:3px 9px;
+    border-radius:20px;
+    letter-spacing:0.02em;
+    text-transform:uppercase;
+    background:var(--good-bg); color:var(--good);
+    white-space:nowrap;
+  }
+  .pill.closed{ background:var(--closed-bg); color:var(--closed); }
+
+  .ledger{margin-top:14px; position:relative;}
+  .ledger-track{height:6px; background:var(--brass-soft); border-radius:4px; position:relative;}
+  .ledger-fill{height:6px; background:var(--primary-soft); border-radius:4px; position:relative;}
+  .ledger-pin{
+    position:absolute; top:-6px; width:2px; height:18px; background:var(--brass);
+  }
+  .ledger-pin::after{
+    content:''; position:absolute; top:-5px; left:-4px; width:10px; height:10px;
+    border-radius:50%; background:var(--brass); border:2px solid var(--paper-raised);
+  }
+  .ledger-labels{
+    display:flex; justify-content:space-between; margin-top:10px;
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft);
+  }
+  .ledger-labels .mid{color:var(--primary-soft); font-weight:600;}
+
+  .stmt-row{display:flex; justify-content:space-between; padding:9px 0; font-size:12.5px; border-bottom:1px dashed var(--line);}
+  .stmt-row:last-child{border-bottom:none;}
+  .stmt-row .k{color:var(--ink-soft);}
+  .stmt-row .v{font-family:'IBM Plex Mono', monospace; font-weight:500;}
+
+  .stmt-row.subtotal{ border-bottom:1px solid var(--line); }
+  .stmt-row.subtotal .k, .stmt-row.subtotal .v{ font-weight:600; color:var(--ink); }
+  .stmt-row.total{ border-bottom:none; border-top:2px solid var(--primary); padding-top:12px; margin-top:2px; }
+  .stmt-row.total .k{ font-weight:700; color:var(--ink); }
+  .stmt-row.total .v{ font-weight:700; color:var(--primary); font-size:14px; }
+
+  .slip-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .slip-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+  .slip-month{ font-family:'Fraunces', serif; font-weight:600; font-size:15px; color:var(--ink); }
+  .projected-tag{
+    font-family:'IBM Plex Mono', monospace; font-size:9.5px; letter-spacing:0.04em;
+    text-transform:uppercase; color:var(--primary-soft);
+    background:var(--good-bg); padding:3px 8px; border-radius:20px;
+    white-space:nowrap;
+  }
+  .slip-note{ font-size:11px; color:var(--ink-soft); margin-bottom:10px; }
+
+  .empty-note{ font-size:12.5px; color:var(--ink-soft); padding:6px 2px 4px; }
+
+  .lockrow{
+    display:flex; align-items:center; gap:8px;
+    background:#EDEFEA; border:1px dashed var(--line);
+    border-radius:10px; padding:10px 12px; margin-top:10px;
+    font-size:11px; color:var(--ink-soft);
+  }
+  .btn-logout{
+    display:inline-block; margin-top:10px; margin-left:8px;
+    background:transparent; border:1px solid rgba(255,255,255,0.35);
+    color:#fff; font-size:11px; padding:4px 10px; border-radius:20px;
+    cursor:pointer; font-family:'IBM Plex Mono', monospace;
+  }
+  .btn-schedule{
+    display:block; width:100%; text-align:center; margin-top:12px;
+    background:transparent; border:1px solid var(--line);
+    color:var(--primary); font-size:12px; font-weight:600;
+    padding:9px; border-radius:10px; cursor:pointer;
+  }
+  .schedule-wrap{ margin-top:10px; }
+  .schedule-loading{ text-align:center; padding:16px; color:var(--ink-soft); font-size:12px; }
+  .sched-table{
+    border:1px solid var(--line); border-radius:10px; overflow:hidden;
+    font-size:10.5px;
+  }
+  .sched-row{
+    display:grid; grid-template-columns:1.3fr 1fr 0.8fr 1fr 1fr 1.1fr;
+    gap:4px; padding:8px 6px; border-bottom:1px solid var(--line);
+    align-items:center;
+  }
+  .sched-row:last-child{ border-bottom:none; }
+  .sched-head{
+    background:var(--paper); font-weight:600; color:var(--ink-soft);
+    text-transform:uppercase; letter-spacing:0.03em; font-size:9px;
+  }
+  .sched-pill{
+    font-size:9px; font-weight:600; padding:2px 6px; border-radius:10px;
+    text-align:center; white-space:nowrap;
+  }
+  .sched-good{ background:var(--good-bg); color:var(--good); }
+  .sched-bad{ background:var(--err-bg); color:var(--err); }
+  .sched-pending{ background:var(--brass-soft); color:var(--primary); }
+  .sched-upcoming{ background:var(--closed-bg); color:var(--closed); }
+  .btn-see-more{
+    display:block; width:100%; text-align:center;
+    background:transparent; border:1px solid var(--line);
+    color:var(--primary); font-size:12.5px; font-weight:600;
+    padding:10px; border-radius:10px; cursor:pointer; margin-top:2px;
+  }
+
+  .navbar{
+    position:absolute; bottom:0; left:0; right:0;
+    background:var(--paper-raised);
+    border-top:1px solid var(--line);
+    display:flex;
+    padding:8px 4px 14px;
+  }
+  .navitem{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:9.5px; color:var(--ink-soft); cursor:pointer; font-weight:500;
+    background:none; border:none;
+  }
+  .navitem.active{color:var(--primary);}
+  .navitem .dot{width:6px; height:6px; border-radius:50%; background:transparent;}
+  .navitem.active .dot{background:var(--primary-soft);}
+  .navicon{font-size:17px; line-height:1;}
+
+  .sidebar{ display:none; }
+  .sidebar-item{
+    display:flex; align-items:center; gap:12px;
+    width:100%; text-align:left;
+    padding:11px 14px; border-radius:10px;
+    font-size:13.5px; font-weight:500; color:var(--ink-soft);
+    background:none; border:none; cursor:pointer;
+  }
+  .sidebar-item .navicon{ font-size:16px; width:18px; text-align:center; }
+  .sidebar-item.active{ background:var(--good-bg); color:var(--primary); font-weight:600; }
+
+  /* ============ DESKTOP ============ */
+  @media (min-width:900px){
+    body{ padding:48px 32px; align-items:flex-start; }
+    .device{
+      width:100%;
+      max-width:1120px;
+      border:1px solid var(--line);
+      border-radius:20px;
+      box-shadow:0 24px 60px rgba(18,51,44,0.12);
+    }
+    .statusbar{ display:none; }
+    .center-state{ height:520px; }
+
+    #app{ display:flex; align-items:stretch; }
+    .sidebar{
+      display:flex; flex-direction:column; gap:2px;
+      width:230px; flex-shrink:0;
+      background:var(--paper-raised);
+      border-right:1px solid var(--line);
+      padding:24px 14px;
+    }
+    .sidebar-wordmark{
+      font-family:'Fraunces', serif; font-weight:600; font-size:16px;
+      color:var(--primary); padding:4px 14px 20px;
+    }
+    .screens-wrap{ flex:1; min-width:0; }
+    .screen{ height:auto; max-height:none; overflow:visible; padding-bottom:32px; }
+    .screen.active{ display:block; }
+    .navbar{ display:none; }
+
+    .topbar{ padding:32px 36px 30px; }
+    .topbar h1{ font-size:26px; }
+    .section{ padding:22px 36px 4px; max-width:760px; }
+    .stat-grid{ grid-template-columns:repeat(4,1fr); margin-top:22px; padding:0 36px; max-width:900px; }
+    .stat-card .value{ font-size:21px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="statusbar"><span>9:41</span><span>OGFZA COOP</span></div>
+
+  <!-- ============ LOADING / ERROR ============ -->
+  <div id="loadingState" class="center-state">
+    <div class="spinner"></div>
+    <div class="msg">Loading your dashboard…</div>
+  </div>
+  <div id="errorState" class="center-state error" style="display:none;">
+    <div class="msg" id="errorMsg"></div>
+    <button class="retry" onclick="loadDashboard()">Try again</button>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" style="display:none;">
+
+    <nav class="sidebar">
+      <div class="sidebar-wordmark">OGFZA COOP</div>
+      <button class="sidebar-item active" data-screen="home" onclick="showScreen('home')">
+        <span class="navicon">⌂</span><span>Home</span>
+      </button>
+      <button class="sidebar-item" data-screen="loans" onclick="showScreen('loans')">
+        <span class="navicon">▤</span><span>Loans</span>
+      </button>
+      <button class="sidebar-item" data-screen="contribution" onclick="showScreen('contribution')">
+        <span class="navicon">◈</span><span>Savings</span>
+      </button>
+      <button class="sidebar-item" data-screen="biodata" onclick="showScreen('biodata')">
+        <span class="navicon">▢</span><span>Biodata</span>
+      </button>
+    </nav>
+
+    <div class="screens-wrap">
+
+    <!-- HOME -->
+    <div class="screen active" id="home">
+      <div class="topbar">
+        <div class="eyebrow" id="greeting">Welcome</div>
+        <h1 id="memberName">Member</h1>
+        <div class="sub" id="memberSub">—</div>
+        <span class="badge tier">DASHBOARD TWO · READ-ONLY</span>
+        <button class="btn-logout" onclick="logout()">Log out</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="label">Active Loans</div><div class="value" id="statActiveLoans">—</div></div>
+        <div class="stat-card"><div class="label">Membership</div><div class="value" id="statStatus">—</div></div>
+        <div class="stat-card"><div class="label">Equity Balance</div><div class="value" id="statEquity">—</div></div>
+        <div class="stat-card"><div class="label">Monthly Deduction</div><div class="value" id="statMonthly">—</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Next Deduction Slip</div>
+        <div id="homeSlipCard"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Current Loan</div>
+        <div id="homeLoanCard"></div>
+        <div class="lockrow">🔒 This is a viewing summary. Loan applications and changes aren't available on this tier.</div>
+      </div>
+    </div>
+
+    <!-- LOANS -->
+    <div class="screen" id="loans">
+      <div class="topbar" style="padding-bottom:20px;">
+        <div class="eyebrow">Loan Portfolio</div>
+        <h1 style="font-size:20px;">Summary</h1>
+        <div class="sub">View-only record of current and past loans</div>
+      </div>
+      <div class="section">
+        <div id="loansList"></div>
+        <div class="lockrow">🔒 To apply for a new loan or request changes, an upgrade to the full member portal is required.</div>
+      </div>
+    </div>
+
+    <!-- SAVINGS -->
+    <div class="screen" id="contribution">
+      <div class="topbar" style="padding-bottom:20px;">
+        <div class="eyebrow">Contribution</div>
+        <h1 style="font-size:20px;">Savings &amp; equity</h1>
+        <div class="sub" id="planSub">Contribution plan</div>
+      </div>
+      <div class="section">
+        <div class="section-title">Balances</div>
+        <div class="card">
+          <div class="stmt-row"><span class="k">Equity balance</span><span class="v" id="balEquity">—</span></div>
+          <div class="stmt-row"><span class="k">CCCF balance</span><span class="v" id="balCccf">—</span></div>
+          <div class="stmt-row"><span class="k">Thrift (Current FY)</span><span class="v" id="balThrift">—</span></div>
+          <div class="stmt-row"><span class="k">Grand total</span><span class="v" id="balGrandTotal">—</span></div>
+          <div class="stmt-row"><span class="k">Outstanding loan</span><span class="v" id="balOutstanding">—</span></div>
+          <div class="stmt-row"><span class="k">Lifetime contributions</span><span class="v" id="balLifetime">—</span></div>
+        </div>
+
+        <div class="section-title">Contribution Plan</div>
+        <div class="card" id="planCard">
+          <div class="stmt-row"><span class="k">CCCF monthly</span><span class="v" id="planCccf">—</span></div>
+          <div class="stmt-row"><span class="k">Equity monthly</span><span class="v" id="planEquity">—</span></div>
+          <div class="stmt-row"><span class="k">Thrift monthly</span><span class="v" id="planThrift">—</span></div>
+          <div class="stmt-row"><span class="k">Effective from</span><span class="v" id="planEffective">—</span></div>
+          <div class="stmt-row"><span class="k">Status</span><span class="v" id="planStatus">—</span></div>
+        </div>
+        <div class="lockrow">🔒 Viewing only. Plan changes aren't submitted from this tier.</div>
+
+        <div class="section-title">Savings History</div>
+        <div id="savingsHistoryList"></div>
+      </div>
+    </div>
+
+    <!-- BIODATA -->
+    <div class="screen" id="biodata">
+      <div class="topbar" style="padding-bottom:20px;">
+        <div class="eyebrow">Biodata</div>
+        <h1 style="font-size:20px;">Record on file</h1>
+        <div class="sub">As held by the cooperative</div>
+      </div>
+      <div class="section">
+        <div class="card">
+          <div class="stmt-row"><span class="k">Full name</span><span class="v" id="bioName">—</span></div>
+          <div class="stmt-row"><span class="k">Internal ID</span><span class="v" id="bioInternalId">—</span></div>
+          <div class="stmt-row"><span class="k">Staff ID</span><span class="v" id="bioStaffId">—</span></div>
+          <div class="stmt-row"><span class="k">Staff type</span><span class="v" id="bioStaffType">—</span></div>
+          <div class="stmt-row"><span class="k">Join date</span><span class="v" id="bioJoinDate">—</span></div>
+          <div class="stmt-row"><span class="k">Membership status</span><span class="v" id="bioStatus">—</span></div>
+        </div>
+        <div class="lockrow">🔒 To correct or update biodata, an upgrade to the full member portal is required.</div>
+      </div>
+    </div>
+
+    <div class="navbar">
+      <button class="navitem active" data-screen="home" onclick="showScreen('home')">
+        <span class="navicon">⌂</span><span>Home</span><span class="dot"></span>
+      </button>
+      <button class="navitem" data-screen="loans" onclick="showScreen('loans')">
+        <span class="navicon">▤</span><span>Loans</span><span class="dot"></span>
+      </button>
+      <button class="navitem" data-screen="contribution" onclick="showScreen('contribution')">
+        <span class="navicon">◈</span><span>Savings</span><span class="dot"></span>
+      </button>
+      <button class="navitem" data-screen="biodata" onclick="showScreen('biodata')">
+        <span class="navicon">▢</span><span>Biodata</span><span class="dot"></span>
+      </button>
+    </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function formatNaira(n) {
+  if (n === null || n === undefined || n === '') return '₦0';
+  var num = Number(n);
+  if (isNaN(num)) return String(n);
+  return '₦' + num.toLocaleString();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('[data-screen]').forEach(function (n) {
+    n.classList.toggle('active', n.dataset.screen === id);
+  });
+  document.getElementById(id).scrollTop = 0;
+}
+
+function greetingForNow() {
+  var h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// Loan status text -> pill styling + human label
+function pillForStatus(status) {
+  var s = String(status || '').toLowerCase();
+  var closedLike = s.indexOf('closed') !== -1 || s.indexOf('repaid') !== -1 || s.indexOf('complet') !== -1;
+  return {
+    label: status || '—',
+    cls: closedLike ? 'pill closed' : 'pill'
+  };
+}
+
+// startMonth/endMonth come through as whatever the sheet stored
+// (Date object serialized to string, or free text like "Feb 2026").
+// Parse loosely; if it can't be parsed, skip the progress bar instead
+// of guessing.
+function safeDate(val) {
+  if (!val) return null;
+  var d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Single shared date formatter used everywhere a month/year displays
+// on the dashboard - always "JULY 2026" style (full month name, all
+// caps), never a short abbreviation or a raw locale-default date.
+function monthLabel(d) {
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+}
+
+function formatMonthYear(val) {
+  var d = safeDate(val);
+  return d ? monthLabel(d) : String(val || '—');
+}
+
+// Payment-based progress, not calendar time. loan.percentPaid comes
+// from MemberData.gs's LOAN_REPAYMENT_LEDGER join - actual amount
+// repaid divided by total repayment due. A member behind on payments
+// now correctly shows less progress than one on schedule, even if
+// both loans have identical start/end dates.
+function buildLedgerHtml(loan) {
+  var start = safeDate(loan.startMonth);
+  var end = safeDate(loan.endMonth);
+  var pct = Number(loan.percentPaid) || 0;
+
+  var startLabel = start ? monthLabel(start) : (loan.startMonth || '—');
+  var endLabel = end ? monthLabel(end) : (loan.endMonth || '—');
+
+  return '' +
+    '<div class="ledger">' +
+      '<div class="ledger-track">' +
+        '<div class="ledger-fill" style="width:' + pct + '%;"><div class="ledger-pin" style="left:100%;"></div></div>' +
+      '</div>' +
+      '<div class="ledger-labels">' +
+        '<span>' + startLabel + '</span>' +
+        '<span class="mid">' + formatNaira(loan.totalPaid) + ' of ' + formatNaira(loan.totalRepayment) + ' (' + pct + '%)</span>' +
+        '<span>' + endLabel + '</span>' +
+      '</div>' +
+    '</div>';
+}
+
+// Condensed loan card for the Home screen - summary only, no
+// schedule toggle. The full loanCardHtml() below (with the schedule
+// button) is used only on the Loans tab. Rendering the same loan on
+// both screens with the schedule feature in both would generate
+// duplicate DOM ids (both built from just the loan number), and
+// document.getElementById() would silently grab whichever copy
+// appears first in the page - which could be the one sitting on a
+// currently-hidden screen. Keeping the schedule toggle in exactly
+// one place avoids that collision at the root instead of patching
+// around it.
+function homeLoanCardHtml(loan) {
+  var pill = pillForStatus(loan.status);
+  return '' +
+    '<div class="card">' +
+      '<div class="row-between">' +
+        '<div>' +
+          '<div class="row-title">' + (loan.loanId || 'Loan') + '</div>' +
+          '<div class="row-sub">' + formatNaira(loan.amount) + ' · ' + (loan.status || '') + '</div>' +
+        '</div>' +
+        '<span class="' + pill.cls + '">' + pill.label + '</span>' +
+      '</div>' +
+      buildLedgerHtml(loan) +
+    '</div>';
+}
+
+// Full loan card, used only on the Loans tab - includes the
+// repayment schedule toggle. See the comment on homeLoanCardHtml()
+// above for why this is not also used on the Home screen.
+function loanCardHtml(loan) {
+  var pill = pillForStatus(loan.status);
+  var safeId = 'sched-' + String(loan.loanId).replace(/[^a-zA-Z0-9]/g, '');
+  return '' +
+    '<div class="card">' +
+      '<div class="row-between">' +
+        '<div>' +
+          '<div class="row-title">' + (loan.loanId || 'Loan') + '</div>' +
+          '<div class="row-sub">' + formatNaira(loan.amount) + ' · ' + (loan.status || '') + '</div>' +
+        '</div>' +
+        '<span class="' + pill.cls + '">' + pill.label + '</span>' +
+      '</div>' +
+      buildLedgerHtml(loan) +
+      '<button class="btn-schedule" onclick="toggleSchedule(\'' + loan.loanId + '\', \'' + safeId + '\')" id="' + safeId + '-btn">View repayment schedule</button>' +
+      '<div id="' + safeId + '" class="schedule-wrap hidden"></div>' +
+    '</div>';
+}
+
+var scheduleCache = {};
+
+function toggleSchedule(loanId, safeId) {
+  var wrap = document.getElementById(safeId);
+  var btn = document.getElementById(safeId + '-btn');
+
+  if (!wrap.classList.contains('hidden')) {
+    wrap.classList.add('hidden');
+    btn.textContent = 'View repayment schedule';
+    return;
+  }
+
+  if (scheduleCache[loanId]) {
+    wrap.innerHTML = scheduleCache[loanId];
+    wrap.classList.remove('hidden');
+    btn.textContent = 'Hide repayment schedule';
+    return;
+  }
+
+  wrap.innerHTML = '<div class="schedule-loading">Loading schedule...</div>';
+  wrap.classList.remove('hidden');
+  btn.textContent = 'Hide repayment schedule';
+
+  callApi('getLoanSchedule', { token: SESSION_TOKEN, loanId: loanId })
+    .then(function (result) {
+      if (!result.success) {
+        wrap.innerHTML = '<div class="empty-note">' + result.error + '</div>';
+        return;
+      }
+      var html = scheduleTableHtml(result.schedule);
+      scheduleCache[loanId] = html;
+      wrap.innerHTML = html;
+    })
+    .catch(function () {
+      wrap.innerHTML = '<div class="empty-note">Could not load the schedule. Try again.</div>';
+    });
+}
+
+function statusPillForSchedule(status) {
+  if (status === 'Paid') return 'sched-pill sched-good';
+  if (status === 'Missed') return 'sched-pill sched-bad';
+  if (status === 'Skipped (Excused)') return 'sched-pill sched-pending';
+  return 'sched-pill sched-upcoming';
+}
+
+function scheduleTableHtml(rows) {
+  if (!rows || rows.length === 0) {
+    return '<div class="empty-note">No schedule available for this loan.</div>';
+  }
+  var note = '<div class="slip-note" style="padding:8px 2px;">Interest is an estimate (flat total interest split evenly across the term). Months already posted show real figures; remaining months are projected on schedule.</div>';
+  var head = '' +
+    '<div class="sched-row sched-head">' +
+      '<span>Month</span><span>Opening</span><span>Interest</span>' +
+      '<span>Deduction</span><span>Closing</span><span>Status</span>' +
+    '</div>';
+  var body = rows.map(function (r) {
+    var d = safeDate(r.month);
+    var label = d ? monthLabel(d) : r.month;
+    return '' +
+      '<div class="sched-row">' +
+        '<span>' + label + '</span>' +
+        '<span>' + formatNaira(r.opening) + '</span>' +
+        '<span>' + formatNaira(r.interestEstimate) + '</span>' +
+        '<span>' + formatNaira(r.deduction) + '</span>' +
+        '<span>' + formatNaira(r.closing) + '</span>' +
+        '<span class="' + statusPillForSchedule(r.status) + '">' + r.status + '</span>' +
+      '</div>';
+  }).join('');
+  return note + '<div class="sched-table">' + head + body + '</div>';
+}
+
+function isActiveLoan(loan) {
+  var s = String(loan.status || '').toLowerCase();
+  return s.indexOf('closed') === -1 && s.indexOf('repaid') === -1 && s.indexOf('complet') === -1;
+}
+
+// Projects the coming month's deduction from the currently active
+// contribution plan + active loan(s). There is no "has this month's
+// deduction been posted yet" flag coming from the backend, so this
+// is always a projection off current standing data, labeled with
+// the current calendar month.
+function computeDeductionSlip(profile, loans, plan) {
+  var now = new Date();
+  var slipMonthLabel = formatMonthYear(now);
+
+  var cccf = plan ? Number(plan.cccfMonthly) || 0 : 0;
+  var equity = plan ? Number(plan.equityMonthly) || 0 : 0;
+  var thrift = plan ? Number(plan.thriftMonthly) || 0 : 0;
+  var contributionTotal = cccf + equity + thrift;
+
+  var activeLoans = (loans || []).filter(isActiveLoan);
+  var loanRepay = activeLoans.reduce(function (sum, loan) {
+    return sum + (Number(loan.monthlyDeduction) || 0);
+  }, 0);
+
+  return {
+    monthLabel: slipMonthLabel,
+    cccf: cccf,
+    equity: equity,
+    thrift: thrift,
+    contributionTotal: contributionTotal,
+    loanCount: activeLoans.length,
+    loanRepay: loanRepay,
+    total: contributionTotal + loanRepay,
+    hasPlan: !!plan
+  };
+}
+
+function slipCardHtml(slip) {
+  if (!slip.hasPlan && slip.loanCount === 0) {
+    return '' +
+      '<div class="slip-card">' +
+        '<div class="slip-head"><span class="slip-month">' + slip.monthLabel + '</span></div>' +
+        '<div class="empty-note">No active contribution plan or loan on record to project a deduction from.</div>' +
+      '</div>';
+  }
+  var loanLine = slip.loanCount > 1
+    ? 'Loan repayment (' + slip.loanCount + ' active loans)'
+    : 'Loan repayment';
+  return '' +
+    '<div class="slip-card">' +
+      '<div class="slip-head">' +
+        '<span class="slip-month">' + slip.monthLabel + '</span>' +
+        '<span class="projected-tag">Projected</span>' +
+      '</div>' +
+      '<div class="slip-note">Based on the current contribution plan and active loan(s). Updates automatically once the plan or loans change.</div>' +
+      '<div class="stmt-row"><span class="k">CCCF</span><span class="v">' + formatNaira(slip.cccf) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">Equity</span><span class="v">' + formatNaira(slip.equity) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">Thrift</span><span class="v">' + formatNaira(slip.thrift) + '</span></div>' +
+      '<div class="stmt-row subtotal"><span class="k">Contribution subtotal</span><span class="v">' + formatNaira(slip.contributionTotal) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">' + loanLine + '</span><span class="v">' + formatNaira(slip.loanRepay) + '</span></div>' +
+      '<div class="stmt-row total"><span class="k">Total deduction</span><span class="v">' + formatNaira(slip.total) + '</span></div>' +
+    '</div>';
+}
+
+// Real posted payroll history, from MEMBER_HISTORY via
+// getMemberHistoryRows_() in MemberData.gs - one row per month
+// actually deducted, not a projection. Already sorted most-recent-
+// first server-side. Shown 3 at a time with a "See more" button,
+// capped at 6 months total regardless of how much history exists -
+// once 6 are showing, the button hides itself.
+var HISTORY_INITIAL_COUNT = 3;
+var HISTORY_MAX_COUNT = 6;
+var fullHistoryData = [];
+var historyVisibleCount = HISTORY_INITIAL_COUNT;
+
+function historyRowHtml(row) {
+  var label = formatMonthYear(row.payrollMonth);
+  return '' +
+    '<div class="card">' +
+      '<div class="row-title" style="margin-bottom:8px;">' + label + '</div>' +
+      '<div class="stmt-row"><span class="k">CCCF</span><span class="v">' + formatNaira(row.cccf) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">Equity</span><span class="v">' + formatNaira(row.equity) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">Thrift</span><span class="v">' + formatNaira(row.thrift) + '</span></div>' +
+      '<div class="stmt-row"><span class="k">Loan repayment</span><span class="v">' + formatNaira(row.loanRepayment) + '</span></div>' +
+      '<div class="stmt-row subtotal"><span class="k">Total deduction</span><span class="v">' + formatNaira(row.totalDeduction) + '</span></div>' +
+    '</div>';
+}
+
+function renderSavingsHistory() {
+  var container = document.getElementById('savingsHistoryList');
+  var rows = fullHistoryData.slice(0, historyVisibleCount);
+
+  if (rows.length === 0) {
+    container.innerHTML = '<div class="card"><div class="empty-note">No posted payroll history on record yet.</div></div>';
+    return;
+  }
+
+  var note = '<div class="slip-note" style="padding:0 2px 10px;">Actual posted payroll deductions, most recent first.</div>';
+  var cards = rows.map(historyRowHtml).join('');
+
+  var canShowMore = historyVisibleCount < HISTORY_MAX_COUNT && fullHistoryData.length > historyVisibleCount;
+  var button = canShowMore
+    ? '<button class="btn-see-more" onclick="showMoreHistory()">See more</button>'
+    : '';
+
+  container.innerHTML = note + cards + button;
+}
+
+function showMoreHistory() {
+  historyVisibleCount = Math.min(HISTORY_MAX_COUNT, historyVisibleCount + HISTORY_INITIAL_COUNT);
+  renderSavingsHistory();
+}
+
+function savingsHistoryHtml(history) {
+  fullHistoryData = history || [];
+  historyVisibleCount = HISTORY_INITIAL_COUNT;
+  renderSavingsHistory();
+  return null;
+}
+
+function loadDashboard() {
+  document.getElementById('errorState').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+
+  var token = SESSION_TOKEN;
+  if (!token) {
+    showError('No session token found. Please log in again.');
+    return;
+  }
+
+  callApi('getMemberDashboardData', { token: token })
+    .then(function (result) {
+      if (!result.success) {
+        showError(result.error);
+        return;
+      }
+      renderDashboard(result);
+    })
+    .catch(function () {
+      showError('Something went wrong loading your dashboard.');
+    });
+}
+
+function showError(message) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  var errEl = document.getElementById('errorState');
+  errEl.style.display = 'flex';
+  document.getElementById('errorMsg').textContent = message;
+}
+
+function renderDashboard(result) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  startIdleTimer();
+
+  var profile = result.profile;
+  var loans = result.loans || [];
+  var plan = result.contributionPlan;
+
+  // -- Home --
+  document.getElementById('greeting').textContent = greetingForNow();
+  document.getElementById('memberName').textContent = profile.fullName;
+  document.getElementById('memberSub').textContent = profile.internalId + ' · Staff No. ' + profile.staffId;
+
+  document.getElementById('statActiveLoans').textContent = profile.activeLoans !== undefined && profile.activeLoans !== '' ? profile.activeLoans : loans.filter(isActiveLoan).length;
+  document.getElementById('statStatus').textContent = profile.status || '—';
+  document.getElementById('statEquity').textContent = formatNaira(profile.equity);
+  document.getElementById('statMonthly').textContent = formatNaira(profile.monthlyDeduction);
+
+  var activeLoans = loans.filter(isActiveLoan);
+  var homeLoanCard = document.getElementById('homeLoanCard');
+  if (activeLoans.length > 0) {
+    homeLoanCard.innerHTML = homeLoanCardHtml(activeLoans[0]);
+  } else {
+    homeLoanCard.innerHTML = '<div class="card"><div class="empty-note">No active loan on record</div></div>';
+  }
+
+  var slip = computeDeductionSlip(profile, loans, plan);
+  document.getElementById('homeSlipCard').innerHTML = slipCardHtml(slip);
+
+  savingsHistoryHtml(result.history);
+
+  // -- Loans --
+  var loansList = document.getElementById('loansList');
+  if (loans.length === 0) {
+    loansList.innerHTML = '<div class="card"><div class="empty-note">No loans on record</div></div>';
+  } else {
+    loansList.innerHTML = loans.map(loanCardHtml).join('');
+  }
+
+  // -- Savings / Contribution --
+  document.getElementById('balEquity').textContent = formatNaira(profile.equity);
+  document.getElementById('balCccf').textContent = formatNaira(profile.cccf);
+  document.getElementById('balThrift').textContent = formatNaira(profile.thrift);
+  document.getElementById('balGrandTotal').textContent = formatNaira(profile.grandTotal);
+  document.getElementById('balOutstanding').textContent = formatNaira(profile.outstandingLoan);
+  document.getElementById('balLifetime').textContent = formatNaira(profile.lifetimeContributions);
+
+  var planCard = document.getElementById('planCard');
+  if (plan) {
+    document.getElementById('planSub').textContent = 'Effective from ' + formatMonthYear(plan.effectiveFrom);
+    document.getElementById('planCccf').textContent = formatNaira(plan.cccfMonthly);
+    document.getElementById('planEquity').textContent = formatNaira(plan.equityMonthly);
+    document.getElementById('planThrift').textContent = formatNaira(plan.thriftMonthly);
+    document.getElementById('planEffective').textContent = formatMonthYear(plan.effectiveFrom);
+    document.getElementById('planStatus').textContent = plan.status || '—';
+  } else {
+    document.getElementById('planSub').textContent = 'No contribution plan on record';
+    planCard.innerHTML = '<div class="empty-note">No contribution plan on record</div>';
+  }
+
+  // -- Biodata --
+  document.getElementById('bioName').textContent = profile.fullName || '—';
+  document.getElementById('bioInternalId').textContent = profile.internalId || '—';
+  document.getElementById('bioStaffId').textContent = profile.staffId || '—';
+  document.getElementById('bioStaffType').textContent = profile.staffType || '—';
+  document.getElementById('bioJoinDate').textContent = formatMonthYear(profile.joinDate);
+  document.getElementById('bioStatus').textContent = profile.status || '—';
+}
+
+function logout() {
+  stopIdleTimer();
+  // Actually revoke the token server-side, not just redirect - a
+  // plain redirect left the old token still valid, so pressing back
+  // could restore access without logging in again.
+  callApi('logoutSession', { token: SESSION_TOKEN });
+  clearToken();
+  window.location.href = 'login.html';
+}
+
+// If the browser restores this page from back-forward cache (bfcache)
+// instead of making a fresh request - which is exactly what pressing
+// back after logout can do - force a real reload so the now-revoked
+// token gets re-validated properly instead of showing whatever was
+// last rendered.
+window.addEventListener('pageshow', function (event) {
+  if (event.persisted) {
+    window.top.location.reload();
+  }
+});
+
+// ---- Session idle timeout (30 min) - same pattern as ExecIndex.html,
+// so both dashboards behave consistently. Starts once the dashboard
+// actually loads successfully (see renderDashboard below), not on the
+// loading/error screens.
+var IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+var idleTimer = null;
+var ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+function startIdleTimer() {
+  resetIdleTimer();
+  ACTIVITY_EVENTS.forEach(function (evt) {
+    document.addEventListener(evt, resetIdleTimer, { passive: true });
+  });
+}
+
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(handleIdleTimeout, IDLE_TIMEOUT_MS);
+}
+
+function stopIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = null;
+  ACTIVITY_EVENTS.forEach(function (evt) {
+    document.removeEventListener(evt, resetIdleTimer);
+  });
+}
+
+function handleIdleTimeout() {
+  logout();
+}
+
+loadDashboard();
+</script>
+
+</body>
+</html>

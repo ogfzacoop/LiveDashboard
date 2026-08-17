@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OGFZA Cooperative Login</title>
+  <script src="api.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: white; border-radius: 10px; padding: 30px 25px; width: 320px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; font-size: 20px; color: #222; }
+    label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; margin-top: 14px; }
+    input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; margin-top: 20px; background-color: #2e7d32; color: white; border: none; border-radius: 6px; font-size: 15px; cursor: pointer; }
+    button:disabled { background-color: #aaa; }
+    button.secondary { background-color: #757575; margin-top: 8px; }
+    .message { margin-top: 12px; font-size: 13px; color: #c62828; min-height: 16px; }
+    .helper-links { margin-top: 16px; text-align: center; font-size: 13px; }
+    .helper-links a { color: #2e7d32; text-decoration: none; display: block; margin-top: 6px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="stepLogin">
+    <h2>OGFZA Cooperative Login</h2>
+    <label for="idInput">Internal ID</label>
+    <input type="text" id="idInput" placeholder="OGFZACOOP0xx">
+    <label for="pwInput">Password</label>
+    <input type="password" id="pwInput">
+    <button id="btnLogin" onclick="submitLogin()">Log In</button>
+    <div class="message" id="loginMessage"></div>
+
+    <div class="helper-links">
+      <a href="#" onclick="showScreen('activation'); return false;">First time here? Activate your account</a>
+      <a href="#" onclick="showScreen('reset'); return false;">Forgot password?</a>
+    </div>
+  </div>
+
+  <!-- ============ ACTIVATION (3-step, works for any role) ============ -->
+  <div class="card hidden" id="activation">
+    <div id="actStep1">
+      <h2>Activate your account</h2>
+      <label>Staff ID</label>
+      <input id="actStaffId" placeholder="Your OGFZA staff ID">
+      <button onclick="startActivationStep()">Continue</button>
+      <div class="message" id="actError1"></div>
+      <div class="helper-links"><a href="#" onclick="backToLogin(); return false;">Back to sign in</a></div>
+    </div>
+
+    <div id="actStep2" class="hidden">
+      <h2>Confirm your identity</h2>
+      <p style="font-size:13px;color:#555;">Confirm your registered phone number or email.</p>
+      <label>Phone number or email</label>
+      <input id="actConfirmValue" placeholder="Phone number or you@example.com">
+      <button onclick="verifyActivationStep()">Confirm</button>
+      <div class="message" id="actError2"></div>
+    </div>
+
+    <div id="actStep3" class="hidden">
+      <h2>Set your password</h2>
+      <p style="font-size:13px;color:#555;">Your Internal ID is: <strong id="actInternalId"></strong></p>
+      <label>New password</label>
+      <input id="actNewPassword" type="password">
+      <label>Confirm password</label>
+      <input id="actNewPassword2" type="password">
+      <button onclick="setActivationPasswordStep()">Set password and sign in</button>
+      <div class="message" id="actError3"></div>
+    </div>
+  </div>
+
+  <!-- ============ FORGOT PASSWORD (works for any role) ============ -->
+  <div class="card hidden" id="reset">
+    <div id="resetStep1">
+      <h2>Reset your password</h2>
+      <label>Internal ID</label>
+      <input id="resetId" placeholder="e.g. OGFZACOOP081">
+      <label>Phone number or registered email</label>
+      <input id="resetConfirmValue" placeholder="Phone number or you@example.com">
+      <button onclick="startResetStep()">Confirm</button>
+      <div class="message" id="resetError1"></div>
+      <div class="helper-links"><a href="#" onclick="backToLogin(); return false;">Back to sign in</a></div>
+    </div>
+
+    <div id="resetStep2" class="hidden">
+      <h2>Set a new password</h2>
+      <label>New password</label>
+      <input id="resetNewPassword" type="password">
+      <label>Confirm password</label>
+      <input id="resetNewPassword2" type="password">
+      <button onclick="setResetPasswordStep()">Set password and sign in</button>
+      <div class="message" id="resetError2"></div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="stepChoice">
+    <h2>Choose a View</h2>
+    <button id="btnMemberView" onclick="goTo('member')">Continue as Member</button>
+    <button id="btnExecView" class="secondary" onclick="goTo('exec')">Continue as Executive</button>
+  </div>
+
+  <script>
+    var lastToken = null;
+    var lastRoles = [];
+
+    function submitLogin() {
+      var id = document.getElementById('idInput').value.trim();
+      var pw = document.getElementById('pwInput').value;
+      var msgEl = document.getElementById('loginMessage');
+
+      if (!id || !pw) {
+        msgEl.textContent = 'Enter your Internal ID and password';
+        return;
+      }
+
+      document.getElementById('btnLogin').disabled = true;
+      msgEl.textContent = '';
+
+      callApi('loginUser', { internalId: id, password: pw })
+        .then(function (result) {
+          document.getElementById('btnLogin').disabled = false;
+          if (!result.success) {
+            msgEl.textContent = result.error;
+            return;
+          }
+          lastToken = result.token;
+          lastRoles = result.roles;
+          routeAfterLogin();
+        })
+        .catch(function () {
+          document.getElementById('btnLogin').disabled = false;
+          msgEl.textContent = 'Something went wrong, try again';
+        });
+    }
+
+    function routeAfterLogin() {
+      var hasMember = lastRoles.indexOf('MEMBER') !== -1;
+      var hasExec = lastRoles.indexOf('EXEC') !== -1;
+      var hasAdmin = lastRoles.indexOf('ADMIN') !== -1;
+
+      if (hasAdmin) { goTo('admin'); return; }
+      if (hasMember && hasExec) {
+        document.getElementById('stepLogin').classList.add('hidden');
+        document.getElementById('stepChoice').classList.remove('hidden');
+        return;
+      }
+      if (hasExec) { goTo('exec'); return; }
+      goTo('member');
+    }
+
+    // Token is saved in sessionStorage, never put in the URL - the
+    // destination pages read it from there on load. sessionStorage
+    // clears when the tab closes (see the comment in api.js).
+    var PAGE_MAP = { member: 'member-dashboard.html', exec: 'exec-dashboard.html', admin: 'exec-dashboard.html' };
+    function goTo(page) {
+      saveToken(lastToken);
+      window.location.href = PAGE_MAP[page] || 'login.html';
+    }
+
+    function showScreen(id) {
+      ['stepLogin', 'stepChoice', 'activation', 'reset'].forEach(function (s) {
+        document.getElementById(s).classList.add('hidden');
+      });
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function backToLogin() {
+      showScreen('stepLogin');
+    }
+
+    // ---------- Activation (first time here) ----------
+    var actStaffIdValue = '';
+    var actTokenValue = '';
+
+    function startActivationStep() {
+      actStaffIdValue = document.getElementById('actStaffId').value;
+      var err = document.getElementById('actError1');
+      err.textContent = '';
+      callApi('startActivation', { staffId: actStaffIdValue })
+        .then(function (res) {
+          if (!res.success) { err.textContent = res.error; return; }
+          document.getElementById('actStep1').classList.add('hidden');
+          document.getElementById('actStep2').classList.remove('hidden');
+        })
+        .catch(function () {
+          err.textContent = 'Something went wrong. Try again.';
+        });
+    }
+
+    function verifyActivationStep() {
+      var confirmValue = document.getElementById('actConfirmValue').value;
+      var err = document.getElementById('actError2');
+      err.textContent = '';
+      callApi('verifyActivation', { staffId: actStaffIdValue, confirmValue: confirmValue })
+        .then(function (res) {
+          if (!res.success) { err.textContent = res.error; return; }
+          actTokenValue = res.token;
+          document.getElementById('actInternalId').textContent = res.internalId;
+          document.getElementById('actStep2').classList.add('hidden');
+          document.getElementById('actStep3').classList.remove('hidden');
+        })
+        .catch(function () {
+          err.textContent = 'Something went wrong. Try again.';
+        });
+    }
+
+    function setActivationPasswordStep() {
+      var p1 = document.getElementById('actNewPassword').value;
+      var p2 = document.getElementById('actNewPassword2').value;
+      var err = document.getElementById('actError3');
+      err.textContent = '';
+      if (p1 !== p2) { err.textContent = 'Passwords do not match.'; return; }
+      callApi('setPasswordWithToken', { token: actTokenValue, purpose: 'ACTIVATE', newPassword: p1 })
+        .then(function (res) {
+          if (!res.success) { err.textContent = res.error; return; }
+          document.getElementById('idInput').value = actStaffIdValue;
+          document.getElementById('pwInput').value = p1;
+          backToLogin();
+          submitLogin();
+        })
+        .catch(function () {
+          err.textContent = 'Something went wrong. Try again.';
+        });
+    }
+
+    // ---------- Forgot password ----------
+    var resetIdValue = '';
+    var resetTokenValue = '';
+
+    function startResetStep() {
+      resetIdValue = document.getElementById('resetId').value;
+      var confirmValue = document.getElementById('resetConfirmValue').value;
+      var err = document.getElementById('resetError1');
+      err.textContent = '';
+      callApi('verifyReset', { internalId: resetIdValue, confirmValue: confirmValue })
+        .then(function (res) {
+          if (!res.success) { err.textContent = res.error; return; }
+          resetTokenValue = res.token;
+          document.getElementById('resetStep1').classList.add('hidden');
+          document.getElementById('resetStep2').classList.remove('hidden');
+        })
+        .catch(function () {
+          err.textContent = 'Something went wrong. Try again.';
+        });
+    }
+
+    function setResetPasswordStep() {
+      var p1 = document.getElementById('resetNewPassword').value;
+      var p2 = document.getElementById('resetNewPassword2').value;
+      var err = document.getElementById('resetError2');
+      err.textContent = '';
+      if (p1 !== p2) { err.textContent = 'Passwords do not match.'; return; }
+      callApi('setPasswordWithToken', { token: resetTokenValue, purpose: 'RESET', newPassword: p1 })
+        .then(function (res) {
+          if (!res.success) { err.textContent = res.error; return; }
+          document.getElementById('idInput').value = resetIdValue;
+          document.getElementById('pwInput').value = p1;
+          backToLogin();
+          submitLogin();
+        })
+        .catch(function () {
+          err.textContent = 'Something went wrong. Try again.';
+        });
+    }
+  </script>
+
+</body>
+</html>
