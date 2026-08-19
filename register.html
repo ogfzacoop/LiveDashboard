@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register — OGFZA Staff Cooperative</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="api.js"></script>
+
+<style>
+  :root{
+    --cream:#F0E9DA;
+    --deep:#16281F;
+    --mid:#3E5C4A;
+    --gold:#C79A3D;
+    --ink:#1A1A16;
+    --line:#D8CBAF;
+    --white:#FBF8F1;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  .wrap{
+    max-width:520px;
+    margin:0 auto;
+    padding:40px 24px 80px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:32px;
+  }
+
+  header h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.6rem;
+    color:var(--deep);
+    margin-top:8px;
+  }
+
+  header p{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--mid);
+    margin-top:6px;
+  }
+
+  .card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:28px 24px;
+  }
+
+  .notice{
+    background:var(--cream);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px;
+    font-size:0.88rem;
+    color:var(--mid);
+    margin-bottom:24px;
+  }
+
+  .notice strong{ color:var(--deep); }
+
+  label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--mid);
+    margin-bottom:6px;
+    margin-top:18px;
+  }
+
+  label:first-of-type{ margin-top:0; }
+
+  .optional{
+    text-transform:none;
+    font-family:'Inter', sans-serif;
+    color:var(--gold);
+    font-weight:500;
+  }
+
+  input[type=text], input[type=tel]{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:0.95rem;
+    font-family:'Inter', sans-serif;
+    background:var(--white);
+    color:var(--ink);
+  }
+
+  input:focus{
+    outline:none;
+    border-color:var(--gold);
+  }
+
+  .file-drop{
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    padding:20px 14px;
+    text-align:center;
+    cursor:pointer;
+    background:var(--cream);
+  }
+
+  .file-drop:hover{ border-color:var(--gold); }
+
+  .file-drop input{ display:none; }
+
+  .file-name{
+    font-size:0.82rem;
+    color:var(--mid);
+    margin-top:8px;
+  }
+
+  .hint{
+    font-size:0.78rem;
+    color:var(--mid);
+    margin-top:6px;
+  }
+
+  /* Honeypot field - hidden from real users, bots will fill it in */
+  .hp-field{
+    position:absolute;
+    left:-9999px;
+    top:-9999px;
+    opacity:0;
+    height:0;
+    overflow:hidden;
+  }
+
+  button{
+    width:100%;
+    padding:14px;
+    margin-top:26px;
+    background:var(--deep);
+    color:var(--white);
+    border:none;
+    border-radius:8px;
+    font-size:0.95rem;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  button:disabled{ background:#8a9689; cursor:not-allowed; }
+
+  .message{
+    margin-top:14px;
+    font-size:0.85rem;
+    min-height:18px;
+  }
+
+  .message.error{ color:#B3261E; }
+  .message.success{ color:var(--mid); }
+
+  .success-screen{
+    text-align:center;
+    padding:20px 0;
+  }
+
+  .success-screen h2{
+    font-family:'Fraunces', serif;
+    color:var(--deep);
+    font-size:1.3rem;
+    margin-bottom:10px;
+  }
+
+  .success-screen p{
+    color:var(--mid);
+    font-size:0.92rem;
+  }
+
+  .back-link{
+    display:block;
+    text-align:center;
+    margin-top:24px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem;
+    color:var(--mid);
+    text-decoration:none;
+  }
+
+  .back-link:hover{ color:var(--deep); }
+
+  .hidden{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p>OGFZA Staff Cooperative</p>
+    <h1>Become a Member</h1>
+  </header>
+
+  <div class="card">
+
+    <div id="formScreen">
+      <div class="notice">
+        <strong>Before you start:</strong> membership requires a one-time payment of
+        <strong>₦10,000</strong> into the cooperative account. Transfer details are shown
+        below — have your payment screenshot ready before submitting.
+      </div>
+
+      <div class="notice">
+        <strong>Account details</strong><br>
+        Bank: Zenith Bank<br>
+        Account Name: ONNE OGFZA STAFF COOP<br>
+        Account Number: 1213236138
+        <br><br>
+        Bank: Sterling Bank<br>
+        Account Name: OGFZE AUTHORITY STAFF COOP<br>
+        Account Number: 0031835957
+      </div>
+
+      <label for="fullName">Full Name</label>
+      <input type="text" id="fullName" placeholder="As it appears on your staff ID">
+
+      <label for="staffId">OGFZA Staff Number <span class="optional">(optional)</span></label>
+      <input type="text" id="staffId" placeholder="If you have one">
+
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" placeholder="e.g. 080XXXXXXXX">
+
+      <label for="receiptFile">Payment Receipt Screenshot</label>
+      <div class="file-drop" onclick="document.getElementById('receiptFile').click()">
+        <div id="dropLabel">Tap to upload a photo or screenshot</div>
+        <div class="file-name" id="fileName"></div>
+        <input type="file" id="receiptFile" accept="image/jpeg,image/png,application/pdf" onchange="handleFileSelect()">
+      </div>
+      <div class="hint">JPG, PNG, or PDF — max 2MB.</div>
+
+      <!-- Honeypot: real users never see or fill this. If it has a value on submit, we quietly drop the request. -->
+      <div class="hp-field">
+        <label for="website">Website</label>
+        <input type="text" id="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <button id="btnSubmit" onclick="submitRegistration()">Submit Application</button>
+      <div class="message" id="formMessage"></div>
+    </div>
+
+    <div id="successScreen" class="success-screen hidden">
+      <h2>Application received</h2>
+      <p>
+        Thank you — we've received your details and payment receipt.
+        A member of our team will reach out to you by phone within a few
+        business days to complete your registration.
+      </p>
+    </div>
+
+  </div>
+
+  <a href="login.html" class="back-link">Already a member? Sign in →</a>
+</div>
+
+<script>
+  var MAX_FILE_BYTES = 2 * 1024 * 1024; // 2MB
+  var ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+  var selectedFile = null;
+
+  function handleFileSelect() {
+    var input = document.getElementById('receiptFile');
+    var file = input.files[0];
+    var msgEl = document.getElementById('formMessage');
+    msgEl.textContent = '';
+    msgEl.className = 'message';
+
+    if (!file) {
+      selectedFile = null;
+      document.getElementById('fileName').textContent = '';
+      return;
+    }
+
+    if (ALLOWED_TYPES.indexOf(file.type) === -1) {
+      msgEl.textContent = 'Please upload a JPG, PNG, or PDF file.';
+      msgEl.className = 'message error';
+      input.value = '';
+      selectedFile = null;
+      document.getElementById('fileName').textContent = '';
+      return;
+    }
+
+    if (file.size > MAX_FILE_BYTES) {
+      msgEl.textContent = 'File is too large. Please keep it under 2MB.';
+      msgEl.className = 'message error';
+      input.value = '';
+      selectedFile = null;
+      document.getElementById('fileName').textContent = '';
+      return;
+    }
+
+    selectedFile = file;
+    document.getElementById('fileName').textContent = file.name;
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        // result looks like "data:image/png;base64,AAAA..." - strip the prefix
+        var result = reader.result;
+        var base64 = result.substring(result.indexOf(',') + 1);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function submitRegistration() {
+    var btn = document.getElementById('btnSubmit');
+    var msgEl = document.getElementById('formMessage');
+    var fullName = document.getElementById('fullName').value.trim();
+    var staffId = document.getElementById('staffId').value.trim();
+    var phone = document.getElementById('phone').value.trim();
+    var honeypot = document.getElementById('website').value;
+
+    msgEl.textContent = '';
+    msgEl.className = 'message';
+
+    // Silently succeed-looking for bots that fill the honeypot - don't
+    // tip them off that they were caught, just do nothing further.
+    if (honeypot) {
+      return;
+    }
+
+    if (!fullName || !phone) {
+      msgEl.textContent = 'Please fill in your full name and phone number.';
+      msgEl.className = 'message error';
+      return;
+    }
+
+    if (!selectedFile) {
+      msgEl.textContent = 'Please upload your payment receipt.';
+      msgEl.className = 'message error';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    fileToBase64(selectedFile)
+      .then(function (base64Data) {
+        return callApi('submitRegistration', {
+          fullName: fullName,
+          staffId: staffId,
+          phone: phone,
+          receiptFileName: selectedFile.name,
+          receiptMimeType: selectedFile.type,
+          receiptBase64: base64Data
+        });
+      })
+      .then(function (result) {
+        btn.disabled = false;
+        btn.textContent = 'Submit Application';
+        if (!result.success) {
+          msgEl.textContent = result.error || 'Something went wrong. Please try again.';
+          msgEl.className = 'message error';
+          return;
+        }
+        document.getElementById('formScreen').classList.add('hidden');
+        document.getElementById('successScreen').classList.remove('hidden');
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Submit Application';
+        msgEl.textContent = 'Something went wrong. Please check your connection and try again.';
+        msgEl.className = 'message error';
+      });
+  }
+</script>
+
+</body>
+</html>
