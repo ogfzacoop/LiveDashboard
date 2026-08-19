@@ -264,6 +264,9 @@
     align-items:center; min-width:480px;
   }
   .sched-row:last-child{ border-bottom:none; }
+  .savings-table .sched-row{
+    grid-template-columns:1.2fr 1fr 1fr 1fr 1fr; min-width:360px;
+  }
   .sched-head{
     background:var(--paper); font-weight:600; color:var(--ink-soft);
     text-transform:uppercase; letter-spacing:0.03em; font-size:9px;
@@ -771,24 +774,37 @@ function slipCardHtml(slip) {
 // Real posted payroll history, from MEMBER_HISTORY via
 // getMemberHistoryRows_() in MemberData.gs - one row per month
 // actually deducted, not a projection. Already sorted most-recent-
-// first server-side. Shown 3 at a time with a "See more" button,
-// capped at 6 months total regardless of how much history exists -
-// once 6 are showing, the button hides itself.
-var HISTORY_INITIAL_COUNT = 3;
-var HISTORY_MAX_COUNT = 6;
+// first server-side. Rendered as a compact table (same sched-table
+// grid the loan repayment schedule uses) instead of one card per
+// month, so it doesn't balloon in height as history piles up.
+// Defaults to the last 6 months; "View 1 year" expands to 12 in one
+// tap with no incremental clicking. NOTE: this only shows what the
+// backend actually sends back in result.history - if
+// getMemberHistoryRows_() itself caps at 6 rows server-side, that
+// cap needs raising to 12 too before "View 1 year" has anything to
+// expand into.
+var HISTORY_COMPACT_COUNT = 6;
+var HISTORY_FULL_COUNT = 12;
 var fullHistoryData = [];
-var historyVisibleCount = HISTORY_INITIAL_COUNT;
+var historyVisibleCount = HISTORY_COMPACT_COUNT;
 
-function historyRowHtml(row) {
-  var label = formatMonthYear(row.payrollMonth);
+function savingsRowHtml(row) {
+  var d = safeDate(row.payrollMonth);
+  var label = d ? shortMonthLabel(d) : formatMonthYear(row.payrollMonth);
+  var cccf = Number(row.cccf) || 0;
+  var equity = Number(row.equity) || 0;
+  var thrift = Number(row.thrift) || 0;
+  // Savings-only total (CCCF + Equity + Thrift) - deliberately excludes
+  // loan repayment, so this doesn't reuse row.totalDeduction which is
+  // the payroll-wide figure including the loan.
+  var savingsTotal = cccf + equity + thrift;
   return '' +
-    '<div class="card">' +
-      '<div class="row-title" style="margin-bottom:8px;">' + label + '</div>' +
-      '<div class="stmt-row"><span class="k">CCCF</span><span class="v">' + formatNaira(row.cccf) + '</span></div>' +
-      '<div class="stmt-row"><span class="k">Equity</span><span class="v">' + formatNaira(row.equity) + '</span></div>' +
-      '<div class="stmt-row"><span class="k">Thrift</span><span class="v">' + formatNaira(row.thrift) + '</span></div>' +
-      '<div class="stmt-row"><span class="k">Loan repayment</span><span class="v">' + formatNaira(row.loanRepayment) + '</span></div>' +
-      '<div class="stmt-row subtotal"><span class="k">Total deduction</span><span class="v">' + formatNaira(row.totalDeduction) + '</span></div>' +
+    '<div class="sched-row">' +
+      '<span>' + label + '</span>' +
+      '<span>' + formatNaira(cccf) + '</span>' +
+      '<span>' + formatNaira(equity) + '</span>' +
+      '<span>' + formatNaira(thrift) + '</span>' +
+      '<span>' + formatNaira(savingsTotal) + '</span>' +
     '</div>';
 }
 
@@ -801,25 +817,39 @@ function renderSavingsHistory() {
     return;
   }
 
-  var note = '<div class="slip-note" style="padding:0 2px 10px;">Actual posted payroll deductions, most recent first.</div>';
-  var cards = rows.map(historyRowHtml).join('');
+  var note = '<div class="slip-note" style="padding:0 2px 10px;">Actual posted savings contributions, most recent first.</div>';
+  var head = '' +
+    '<div class="sched-row sched-head">' +
+      '<span>Month</span><span>CCCF</span><span>Equity</span>' +
+      '<span>Thrift</span><span>Total</span>' +
+    '</div>';
+  var table = '<div class="sched-table savings-table">' + head + rows.map(savingsRowHtml).join('') + '</div>';
 
-  var canShowMore = historyVisibleCount < HISTORY_MAX_COUNT && fullHistoryData.length > historyVisibleCount;
-  var button = canShowMore
-    ? '<button class="btn-see-more" onclick="showMoreHistory()">See more</button>'
-    : '';
+  var canExpand = historyVisibleCount < HISTORY_FULL_COUNT && fullHistoryData.length > historyVisibleCount;
+  var canCollapse = historyVisibleCount > HISTORY_COMPACT_COUNT;
+  var button = '';
+  if (canExpand) {
+    button = '<button class="btn-see-more" onclick="expandSavingsHistory()">View 1 year</button>';
+  } else if (canCollapse) {
+    button = '<button class="btn-see-more" onclick="collapseSavingsHistory()">Show less</button>';
+  }
 
-  container.innerHTML = note + cards + button;
+  container.innerHTML = note + table + button;
 }
 
-function showMoreHistory() {
-  historyVisibleCount = Math.min(HISTORY_MAX_COUNT, historyVisibleCount + HISTORY_INITIAL_COUNT);
+function expandSavingsHistory() {
+  historyVisibleCount = HISTORY_FULL_COUNT;
+  renderSavingsHistory();
+}
+
+function collapseSavingsHistory() {
+  historyVisibleCount = HISTORY_COMPACT_COUNT;
   renderSavingsHistory();
 }
 
 function savingsHistoryHtml(history) {
   fullHistoryData = history || [];
-  historyVisibleCount = HISTORY_INITIAL_COUNT;
+  historyVisibleCount = HISTORY_COMPACT_COUNT;
   renderSavingsHistory();
   return null;
 }
