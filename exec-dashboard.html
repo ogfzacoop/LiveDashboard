@@ -745,16 +745,43 @@
     }
 
     box.innerHTML = matches.map(function(m) {
-      return '<div class="search-result-item" onclick="selectMember(\'' + m.internalId + '\', ' +
-        JSON.stringify(m.fullName) + ')">' + m.fullName +
-        '<span class="sr-id">' + m.internalId + '</span></div>';
+      return '<div class="search-result-item" data-internal-id="' + escapeHtmlAttr(m.internalId) +
+        '" data-full-name="' + escapeHtmlAttr(m.fullName) + '">' + escapeHtml(m.fullName) +
+        '<span class="sr-id">' + escapeHtml(m.internalId) + '</span></div>';
     }).join('');
   }
 
+  // Escaping helpers for building result-row HTML: escapeHtml for text
+  // content, escapeHtmlAttr additionally escapes quotes for safe use
+  // inside a double-quoted attribute value.
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+  function escapeHtmlAttr(s) {
+    return escapeHtml(s)
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Event delegation: one listener on the results container reads each
+  // row's member info off its data-* attributes, instead of building a
+  // per-row onclick string (which broke when a name contained a quote,
+  // since JSON.stringify's double quotes collided with the onclick
+  // attribute's own double-quote delimiters).
   document.addEventListener('click', function(e) {
     const box = document.getElementById('memberSearchResults');
     const input = document.getElementById('memberSearchInput');
     if (!box || !input) return;
+
+    const row = e.target.closest('.search-result-item');
+    if (row && box.contains(row)) {
+      selectMember(row.dataset.internalId, row.dataset.fullName);
+      return;
+    }
+
     if (e.target !== input && !box.contains(e.target)) {
       box.innerHTML = '';
     }
