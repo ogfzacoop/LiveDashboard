@@ -102,6 +102,20 @@
     .alert-row:last-child { border-bottom:none; }
 
     select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:13.5px; background:#fff; font-weight:600; color:var(--navy); }
+    input[type="text"], input[type="number"] { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:13.5px; background:#fff; color:var(--navy); font-family:inherit; }
+    input[type="text"]:focus, input[type="number"]:focus { outline:none; border-color:var(--green); }
+
+    .search-results { position:relative; margin-top:2px; }
+    .search-results:not(:empty) {
+      border:1px solid var(--border); border-radius:10px; background:#fff;
+      box-shadow:0 6px 18px rgba(15,27,61,.10); overflow:hidden; margin-top:6px;
+    }
+    .search-result-item { padding:10px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--border); color:var(--navy); }
+    .search-result-item:last-child { border-bottom:none; }
+    .search-result-item:hover, .search-result-item.highlighted { background:var(--green-bg); }
+    .search-result-item .sr-id { color:var(--muted); font-size:11.5px; margin-left:6px; }
+    .search-result-empty { padding:10px 12px; font-size:12.5px; color:var(--muted); }
+
 
     .row { display:flex; justify-content:space-between; padding:8px 0; font-size:13px; border-bottom:1px dashed var(--border); }
     .row .label { color:var(--muted); }
@@ -265,7 +279,11 @@
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <select id="memberSelect" onchange="loadMember()"><option>Loading members…</option></select>
+          <label for="memberSearchInput" style="display:block;font-size:12px;color:var(--muted);margin:0 0 6px;">Search Member by Name</label>
+          <input type="text" id="memberSearchInput" placeholder="Type 3+ letters of a name…" autocomplete="off"
+                 oninput="filterMemberSearch()" onfocus="filterMemberSearch()">
+          <div class="search-results" id="memberSearchResults"></div>
+          <input type="hidden" id="memberInternalId">
         </div>
 
         <div id="memberRecordBody">Select a member above.</div>
@@ -679,16 +697,14 @@
   }
 
   let memberLoadInFlight = false;
+  let allMembersCache = []; // [{internalId, fullName}], loaded once, filtered client-side as the user types
 
   function loadMemberList() {
     callApi('getExecMemberList', { token: currentToken })
       .then(function(list) {
-        const sel = document.getElementById('memberSelect');
-        sel.innerHTML = list.map(function(m) {
-          return '<option value="' + m.internalId + '">' + m.fullName + ' (' + m.internalId + ')</option>';
-        }).join('');
-        // Do NOT auto-load a member here — wait for an explicit selection
-        // to avoid a race with any in-flight call.
+        allMembersCache = list || [];
+        // Do NOT auto-load or auto-render a member here — wait for an
+        // explicit selection to avoid a race with any in-flight call.
       })
       .catch(function(err) {
         document.getElementById('memberRecordBody').innerHTML =
@@ -696,10 +712,68 @@
       });
   }
 
+  // Live name search over the client-side member list cache, same
+  // "type 3+ letters" pattern used in the admin panels — filters by
+  // fullName containing the typed text (case-insensitive) and shows up
+  // to 8 matches. Clicking a result fills the hidden internalId field,
+  // shows the chosen name in the input, and loads that member's record.
+  function filterMemberSearch() {
+    const box = document.getElementById('memberSearchResults');
+    const input = document.getElementById('memberSearchInput');
+    const q = input.value.trim().toLowerCase();
+
+    // Selecting a result sets input.value to "Name (ID)" — if the user
+    // hasn't changed it since, there's nothing new to search for.
+    if (document.getElementById('memberInternalId').value &&
+        input.value === input.dataset.lastSelected) {
+      box.innerHTML = '';
+      return;
+    }
+
+    if (q.length < 3) {
+      box.innerHTML = '';
+      return;
+    }
+
+    const matches = allMembersCache
+      .filter(function(m) { return String(m.fullName || '').toLowerCase().indexOf(q) !== -1; })
+      .slice(0, 8);
+
+    if (!matches.length) {
+      box.innerHTML = '<div class="search-result-empty">No members match "' + q + '"</div>';
+      return;
+    }
+
+    box.innerHTML = matches.map(function(m) {
+      return '<div class="search-result-item" onclick="selectMember(\'' + m.internalId + '\', ' +
+        JSON.stringify(m.fullName) + ')">' + m.fullName +
+        '<span class="sr-id">' + m.internalId + '</span></div>';
+    }).join('');
+  }
+
+  document.addEventListener('click', function(e) {
+    const box = document.getElementById('memberSearchResults');
+    const input = document.getElementById('memberSearchInput');
+    if (!box || !input) return;
+    if (e.target !== input && !box.contains(e.target)) {
+      box.innerHTML = '';
+    }
+  });
+
+  function selectMember(internalId, fullName) {
+    document.getElementById('memberInternalId').value = internalId;
+    const input = document.getElementById('memberSearchInput');
+    const display = fullName + ' (' + internalId + ')';
+    input.value = display;
+    input.dataset.lastSelected = display;
+    document.getElementById('memberSearchResults').innerHTML = '';
+    loadMember();
+  }
+
   function loadMember() {
     if (memberLoadInFlight) return;
     memberLoadInFlight = true;
-    const id = document.getElementById('memberSelect').value;
+    const id = document.getElementById('memberInternalId').value;
     document.getElementById('memberRecordBody').innerHTML = '<div class="card">Loading…</div>';
     callApi('getExecMemberProfile', { token: currentToken, internalId: id })
       .then(function(data) {
@@ -751,7 +825,11 @@
       html += '<p style="font-size:13px;color:var(--muted);">No active loan records for this member.</p>';
     } else {
       data.loans.forEach(function(l) {
+        const interestAmount = l.totalRepayment - l.loanAmount;
         html += '<div class="loan-block"><h4>' + l.loanId + ' <span class="badge active">' + l.status + '</span></h4>' +
+          '<div class="row"><span class="label">Loan Amount (Principal)</span><span class="value">' + fmt(l.loanAmount) + '</span></div>' +
+          '<div class="row"><span class="label">Interest' + (l.interestRate ? ' (' + l.interestRate + '%)' : '') + '</span><span class="value">' + fmt(interestAmount) + '</span></div>' +
+          '<div class="row"><span class="label"><strong>Total Repayment (Capital + Interest)</strong></span><span class="value"><strong>' + fmt(l.totalRepayment) + '</strong></span></div>' +
           '<div class="row"><span class="label">Outstanding</span><span class="value">' + fmt(l.totalRepayment - l.totalPaid) + '</span></div>' +
           '<div class="row"><span class="label">Monthly Deduction</span><span class="value">' + fmt(l.monthlyDeduction) + '</span></div>' +
           '<div class="progress-bg"><div class="progress-fill" style="width:' + l.percentPaid + '%"></div></div>' +
