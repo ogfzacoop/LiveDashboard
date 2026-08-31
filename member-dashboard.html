@@ -342,6 +342,40 @@
     border-radius:10px; padding:10px 12px; margin-top:10px;
     font-size:11px; color:var(--ink-soft);
   }
+  .noticerow{
+    display:flex; align-items:flex-start; gap:9px;
+    background:var(--err-bg); border:1px solid var(--err);
+    border-radius:10px; padding:12px 13px; margin-bottom:14px;
+    font-size:12px; color:var(--ink); line-height:1.5;
+  }
+  .noticerow .icon{ font-size:15px; line-height:1.4; }
+  .limit-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .limit-card .limit-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--primary-soft);
+    margin-bottom:6px;
+  }
+  .limit-card .limit-value{
+    font-family:'Fraunces', serif;
+    font-size:24px;
+    font-weight:600;
+    color:var(--primary);
+  }
+  .limit-card .limit-note{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:8px;
+    line-height:1.5;
+  }
   .btn-logout{
     display:inline-block; margin-top:10px; margin-left:8px;
     background:transparent; border:1px solid rgba(255,255,255,0.35);
@@ -528,6 +562,17 @@
         <div class="sub">View-only record of current and past loans</div>
       </div>
       <div class="section">
+        <div class="noticerow">
+          <span class="icon">⚠️</span>
+          <span>In the unfortunate event of your demise, or resignation from the Authority, your outstanding liability will be deducted from your benefits with the Authority.</span>
+        </div>
+
+        <div class="limit-card">
+          <div class="limit-label">Projected Maximum Loan Limit (Effective Jan 2028)</div>
+          <div class="limit-value" id="projectedLoanLimit">—</div>
+          <div class="limit-note">Based on your current CCCF balance. It increases the more you contribute.</div>
+        </div>
+
         <div id="loansList"></div>
         <div class="lockrow">🔒 To apply for a new loan or request changes, an upgrade to the full member portal is required.</div>
       </div>
@@ -574,6 +619,7 @@
         <div class="sub">As held by the cooperative</div>
       </div>
       <div class="section">
+        <div class="section-title">Personal</div>
         <div class="card">
           <div class="stmt-row"><span class="k">Full name</span><span class="v" id="bioName">—</span></div>
           <div class="stmt-row"><span class="k">Internal ID</span><span class="v" id="bioInternalId">—</span></div>
@@ -581,7 +627,27 @@
           <div class="stmt-row"><span class="k">Staff type</span><span class="v" id="bioStaffType">—</span></div>
           <div class="stmt-row"><span class="k">Join date</span><span class="v" id="bioJoinDate">—</span></div>
           <div class="stmt-row"><span class="k">Membership status</span><span class="v" id="bioStatus">—</span></div>
+          <div class="stmt-row"><span class="k">Phone number</span><span class="v" id="bioPhone">—</span></div>
+          <div class="stmt-row"><span class="k">Email</span><span class="v" id="bioEmail">—</span></div>
+          <div class="stmt-row"><span class="k">Residential address</span><span class="v" id="bioAddress">—</span></div>
+          <div class="stmt-row"><span class="k">Date of birth</span><span class="v" id="bioDob">—</span></div>
         </div>
+
+        <div class="section-title">Next of Kin</div>
+        <div class="card">
+          <div class="stmt-row"><span class="k">Name</span><span class="v" id="bioNokName">—</span></div>
+          <div class="stmt-row"><span class="k">Relationship</span><span class="v" id="bioNokRelationship">—</span></div>
+          <div class="stmt-row"><span class="k">Phone</span><span class="v" id="bioNokPhone">—</span></div>
+        </div>
+
+        <div class="section-title">Account Details</div>
+        <div class="card">
+          <div class="stmt-row"><span class="k">Account name</span><span class="v" id="bioAccountName">—</span></div>
+          <div class="stmt-row"><span class="k">Account number</span><span class="v" id="bioAccountNumber">—</span></div>
+          <div class="stmt-row"><span class="k">Bank name</span><span class="v" id="bioBankName">—</span></div>
+          <div class="stmt-row"><span class="k">Bank code</span><span class="v" id="bioBankCode">—</span></div>
+        </div>
+
         <div class="lockrow">🔒 To correct or update biodata, an upgrade to the full member portal is required.</div>
       </div>
     </div>
@@ -1127,6 +1193,25 @@ function renderDashboard(result) {
   document.getElementById('bioStaffType').textContent = profile.staffType || '—';
   document.getElementById('bioJoinDate').textContent = formatMonthYear(profile.joinDate);
   document.getElementById('bioStatus').textContent = profile.status || '—';
+  document.getElementById('bioPhone').textContent = profile.phoneNumber || '—';
+  document.getElementById('bioEmail').textContent = profile.email || '—';
+  document.getElementById('bioAddress').textContent = profile.residentialAddress || '—';
+  document.getElementById('bioDob').textContent = formatMonthYear(profile.dateOfBirth);
+
+  document.getElementById('bioNokName').textContent = profile.nextOfKinName || '—';
+  document.getElementById('bioNokRelationship').textContent = profile.nextOfKinRelationship || '—';
+  document.getElementById('bioNokPhone').textContent = profile.nextOfKinPhone || '—';
+
+  document.getElementById('bioAccountName').textContent = profile.accountName || '—';
+  document.getElementById('bioAccountNumber').textContent = profile.accountNumber || '—';
+  document.getElementById('bioBankName').textContent = profile.bankName || '—';
+  document.getElementById('bioBankCode').textContent = profile.bankCode || '—';
+
+  // -- Projected loan limit (CCCF x 3, effective Jan 2028) --
+  // Static from the already-loaded profile.cccf - does not re-fetch,
+  // same as the rest of this render pass.
+  var cccfBalance = Number(profile.cccf) || 0;
+  document.getElementById('projectedLoanLimit').textContent = formatNaira(cccfBalance * 3);
 }
 
 function logout() {
