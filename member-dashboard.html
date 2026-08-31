@@ -129,6 +129,108 @@
     font-weight:600;
   }
 
+  /* -- Notice bell (top-right of Home topbar) -- */
+  .notice-bell{
+    position:absolute;
+    top:20px;
+    right:18px;
+    background:rgba(255,255,255,0.14);
+    border:1px solid rgba(255,255,255,0.3);
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    font-size:18px;
+    font-weight:700;
+    color:#fff;
+  }
+  .notice-bell .count{
+    position:absolute;
+    top:-4px;
+    right:-4px;
+    background:var(--err);
+    color:#fff;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    font-weight:700;
+    min-width:17px;
+    height:17px;
+    border-radius:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 4px;
+    border:2px solid var(--primary);
+  }
+
+  /* -- Notice modal -- */
+  .notice-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(24,36,32,0.55);
+    z-index:50;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .notice-overlay.active{ display:flex; }
+  .notice-modal{
+    background:var(--paper-raised);
+    width:100%;
+    max-width:520px;
+    max-height:78vh;
+    overflow-y:auto;
+    border-radius:18px 18px 0 0;
+    padding:20px 18px 24px;
+  }
+  .notice-modal-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .notice-modal-head h2{
+    font-family:'Fraunces', serif;
+    font-size:17px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .notice-close{
+    background:var(--brass-soft);
+    border:none;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .notice-item{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:13px 14px;
+    margin-bottom:10px;
+  }
+  .notice-item:last-child{ margin-bottom:0; }
+  .notice-date{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+  }
+  .notice-text{
+    font-size:13px;
+    color:var(--ink);
+    line-height:1.5;
+  }
+
   .section{padding:18px 20px 4px;}
   .section-title{
     font-family:'Fraunces', serif;
@@ -395,6 +497,9 @@
         <div class="sub" id="memberSub">—</div>
         <span class="badge tier">DASHBOARD TWO · READ-ONLY</span>
         <button class="btn-logout" onclick="logout()">Log out</button>
+        <div class="notice-bell hidden" id="noticeBell" onclick="openNoticeModal()">
+          🔔<span class="count" id="noticeCount">0</span>
+        </div>
       </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="label">Active Loans</div><div class="value" id="statActiveLoans">—</div></div>
@@ -498,6 +603,18 @@
 
     </div>
   </div>
+
+  <!-- NOTICE MODAL -->
+  <div class="notice-overlay" id="noticeOverlay" onclick="if(event.target===this) closeNoticeModal();">
+    <div class="notice-modal">
+      <div class="notice-modal-head">
+        <h2>Notices</h2>
+        <button class="notice-close" onclick="closeNoticeModal()">✕</button>
+      </div>
+      <div id="noticeList"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -876,6 +993,57 @@ function loadDashboard() {
     .catch(function () {
       showError('Something went wrong loading your dashboard.');
     });
+
+  // Notices load separately from the main dashboard payload - a
+  // failure here shouldn't block the rest of the dashboard from
+  // showing, so it's caught and silently ignored rather than
+  // surfaced as a full-page error.
+  callApi('getActiveNotices', { token: token })
+    .then(function (result) {
+      if (result && result.success) {
+        renderNotices(result.notices || []);
+      }
+    })
+    .catch(function () {});
+}
+
+var CURRENT_NOTICES = [];
+
+function renderNotices(notices) {
+  CURRENT_NOTICES = notices;
+  var bell = document.getElementById('noticeBell');
+  var countEl = document.getElementById('noticeCount');
+  if (notices.length > 0) {
+    bell.classList.remove('hidden');
+    countEl.textContent = notices.length;
+  } else {
+    bell.classList.add('hidden');
+  }
+}
+
+function openNoticeModal() {
+  var listEl = document.getElementById('noticeList');
+  if (CURRENT_NOTICES.length === 0) {
+    listEl.innerHTML = '<div class="empty-note">No active notices.</div>';
+  } else {
+    listEl.innerHTML = CURRENT_NOTICES.map(function (n) {
+      return '<div class="notice-item">' +
+        '<div class="notice-date">' + formatMonthYear(n.datePosted) + '</div>' +
+        '<div class="notice-text">' + escapeHtml_(n.message) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+  document.getElementById('noticeOverlay').classList.add('active');
+}
+
+function closeNoticeModal() {
+  document.getElementById('noticeOverlay').classList.remove('active');
+}
+
+function escapeHtml_(str) {
+  var div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
 }
 
 function showError(message) {
