@@ -1,12 +1,14 @@
 // OGFZACOOP Dashboard Service Worker
 // Caches the static app shell only. Never caches Apps Script API calls
 // (member ledgers, loan data, notifications) so figures are never stale.
+//
+// v2 fix: the fetch handler now ALWAYS resolves with a real Response object.
+// The previous version could resolve with `undefined` when both the cache
+// and the network lookup failed at the same time, which Chrome shows as
+// net::ERR_FAILED / "This site can't be reached" instead of your page.
 
-const CACHE_NAME = "ogfzacoop-shell-v1"; // bump this string on every deploy to force refresh
+const CACHE_NAME = "ogfzacoop-shell-v2"; // bumped so every phone force-refreshes the old broken cache
 
-// Confirmed pages from your repo. If your logged-in member/exec/admin
-// dashboard pages live at different filenames or on a different
-// subdomain/host, add their paths here too.
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -18,15 +20,24 @@ const APP_SHELL = [
   "/icons/icon-512.png"
 ];
 
-// Requests to never cache — Apps Script Web App calls and anything dynamic.
 const NEVER_CACHE_HOSTS = [
   "script.google.com",
   "script.googleusercontent.com"
 ];
 
+// A guaranteed, always-available fallback — used only if even offline.html
+// somehow isn't cached yet, so the browser never gets an empty response.
+const EMERGENCY_FALLBACK = new Response(
+  "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px;'>" +
+  "<h2>Connecting…</h2><p>Please check your internet connection and reopen the app.</p></body></html>",
+  { headers: { "Content-Type": "text/html" } }
+);
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .catch((err) => console.error("SW install cache.addAll failed:", err))
   );
   self.skipWaiting();
 });
@@ -34,11 +45,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
@@ -47,30 +54,35 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Never intercept Apps Script API traffic — always go to network.
-  if (NEVER_CACHE_HOSTS.some((host) => url.hostname.includes(host))) {
-    return;
-  }
-
-  // Only handle same-origin GET requests for the static shell.
-  if (event.request.method !== "GET" || url.origin !== self.location.origin) {
-    return;
-  }
+  if (NEVER_CACHE_HOSTS.some((host) => url.hostname.includes(host))) return;
+  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
+      if (cached) {
+        // Serve instantly, refresh cache in background (errors here are fine to ignore).
+        fetch(event.request)
+          .then((resp) => {
+            if (resp && resp.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resp));
+            }
+          })
+          .catch(() => {});
+        return cached;
+      }
+
+      // Nothing cached — try the network, and guarantee SOME real response no matter what.
+      return fetch(event.request)
+        .then((resp) => {
+          if (resp && resp.status === 200) {
+            const clone = resp.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-          return response;
+          return resp;
         })
-        .catch(() => cached || caches.match("/offline.html"));
-
-      // Stale-while-revalidate: serve cached instantly, update cache in background.
-      return cached || networkFetch;
+        .catch(() =>
+          caches.match("/offline.html").then((offline) => offline || EMERGENCY_FALLBACK)
+        );
     })
   );
 });
