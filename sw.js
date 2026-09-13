@@ -1,37 +1,29 @@
 // OGFZACOOP Dashboard Service Worker
-// Caches the static app shell only. Never caches Apps Script API calls
-// (member ledgers, loan data, notifications) so figures are never stale.
+// Caches static assets only (icons, manifest). Deliberately does NOT
+// intercept page navigations (index.html, login.html, register.html, etc.)
 //
-// v2 fix: the fetch handler now ALWAYS resolves with a real Response object.
-// The previous version could resolve with `undefined` when both the cache
-// and the network lookup failed at the same time, which Chrome shows as
-// net::ERR_FAILED / "This site can't be reached" instead of your page.
+// WHY: your server responds to /login.html with a 307 redirect. Chrome
+// enforces a strict rule that a service worker may never resolve a page
+// navigation with a redirected Response - doing so throws net::ERR_FAILED.
+// The safest fix is to never let the service worker touch navigations at
+// all: the browser then requests these pages directly, exactly as it
+// would with no service worker present. Static assets (icons, manifest,
+// this file) are unaffected by this restriction and still get cached.
 
-const CACHE_NAME = "ogfzacoop-shell-v2"; // bumped so every phone force-refreshes the old broken cache
+const CACHE_NAME = "ogfzacoop-shell-v3";
 
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/login.html",
-  "/register.html",
   "/manifest.json",
-  "/offline.html",
   "/icons/icon-192.png",
-  "/icons/icon-512.png"
+  "/icons/icon-512.png",
+  "/icons/icon-192-maskable.png",
+  "/icons/icon-512-maskable.png"
 ];
 
 const NEVER_CACHE_HOSTS = [
   "script.google.com",
   "script.googleusercontent.com"
 ];
-
-// A guaranteed, always-available fallback — used only if even offline.html
-// somehow isn't cached yet, so the browser never gets an empty response.
-const EMERGENCY_FALLBACK = new Response(
-  "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px;'>" +
-  "<h2>Connecting…</h2><p>Please check your internet connection and reopen the app.</p></body></html>",
-  { headers: { "Content-Type": "text/html" } }
-);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -52,6 +44,13 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Never touch page navigations (clicking links, typing a URL, opening
+  // the installed app). Let the browser fetch these directly and
+  // normally - this is the critical fix.
+  if (event.request.mode === "navigate") {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   if (NEVER_CACHE_HOSTS.some((host) => url.hostname.includes(host))) return;
@@ -60,7 +59,6 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {
-        // Serve instantly, refresh cache in background (errors here are fine to ignore).
         fetch(event.request)
           .then((resp) => {
             if (resp && resp.status === 200) {
@@ -70,19 +68,13 @@ self.addEventListener("fetch", (event) => {
           .catch(() => {});
         return cached;
       }
-
-      // Nothing cached — try the network, and guarantee SOME real response no matter what.
-      return fetch(event.request)
-        .then((resp) => {
-          if (resp && resp.status === 200) {
-            const clone = resp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return resp;
-        })
-        .catch(() =>
-          caches.match("/offline.html").then((offline) => offline || EMERGENCY_FALLBACK)
-        );
+      return fetch(event.request).then((resp) => {
+        if (resp && resp.status === 200) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return resp;
+      });
     })
   );
 });
