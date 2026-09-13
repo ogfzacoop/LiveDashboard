@@ -1,0 +1,49 @@
+{
+  "name": "OGFZA Staff Cooperative Investment & Credit Society",
+  "short_name": "OGFZACOOP",
+  "description": "Onne OGFZA Staff Co-operative Investment and Credit Society Ltd — member savings, loans, and executive dashboard",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F0E9DA",
+  "theme_color": "#16281F",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log In",
+      "url": "/login.html",
+      "description": "Member / Executive login"
+    },
+    {
+      "name": "Become a Member",
+      "url": "/register.html",
+      "description": "Start registration"
+    }
+  ]
+}
