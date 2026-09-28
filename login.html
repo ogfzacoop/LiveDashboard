@@ -25,6 +25,25 @@
     .copy-btn { width: auto; flex-shrink: 0; padding: 7px 14px; margin-top: 0; font-size: 12px; background-color: #2e7d32; }
     .copy-btn.copied { background-color: #1b5e20; }
     .id-warning { font-size: 12.5px; color: #7a5b00; margin-top: 10px; line-height: 1.4; }
+
+    /* ---------- Show / hide password ---------- */
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 44px; }
+    /* Hide the browser's own built-in reveal icon (Edge) so only ours shows */
+    .pw-wrap input::-ms-reveal, .pw-wrap input::-ms-clear { display: none; }
+    button.pw-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 34px; height: 34px; margin-top: 0; padding: 0;
+      background: transparent; color: #666; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    button.pw-toggle:hover { background: #f0f0f0; color: #2e7d32; }
+    button.pw-toggle:focus-visible { outline: 2px solid #2e7d32; }
+    button.pw-toggle svg { width: 20px; height: 20px; }
+    button.pw-toggle .icon-hide { display: none; }
+    button.pw-toggle.showing .icon-show { display: none; }
+    button.pw-toggle.showing .icon-hide { display: block; }
+    button.pw-toggle.showing { color: #2e7d32; }
   </style>
 </head>
 <body>
@@ -34,7 +53,13 @@
     <label for="idInput">Internal ID</label>
     <input type="text" id="idInput" placeholder="OGFZACOOP0xx">
     <label for="pwInput">Password</label>
-    <input type="password" id="pwInput">
+    <div class="pw-wrap">
+      <input type="password" id="pwInput">
+      <button type="button" class="pw-toggle" onclick="togglePassword('pwInput', this)" aria-label="Show password" aria-pressed="false">
+        <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
     <button id="btnLogin" onclick="submitLogin()">Log In</button>
     <div class="message" id="loginMessage"></div>
 
@@ -79,9 +104,21 @@
       </div>
 
       <label>New password</label>
-      <input id="actNewPassword" type="password">
+      <div class="pw-wrap">
+        <input id="actNewPassword" type="password">
+        <button type="button" class="pw-toggle" onclick="togglePassword('actNewPassword', this)" aria-label="Show password" aria-pressed="false">
+          <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
       <label>Confirm password</label>
-      <input id="actNewPassword2" type="password">
+      <div class="pw-wrap">
+        <input id="actNewPassword2" type="password">
+        <button type="button" class="pw-toggle" onclick="togglePassword('actNewPassword2', this)" aria-label="Show password" aria-pressed="false">
+          <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
       <button id="btnActStep3" onclick="setActivationPasswordStep()">Set password and sign in</button>
       <div class="message" id="actError3"></div>
     </div>
@@ -103,9 +140,21 @@
     <div id="resetStep2" class="hidden">
       <h2>Set a new password</h2>
       <label>New password</label>
-      <input id="resetNewPassword" type="password">
+      <div class="pw-wrap">
+        <input id="resetNewPassword" type="password">
+        <button type="button" class="pw-toggle" onclick="togglePassword('resetNewPassword', this)" aria-label="Show password" aria-pressed="false">
+          <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
       <label>Confirm password</label>
-      <input id="resetNewPassword2" type="password">
+      <div class="pw-wrap">
+        <input id="resetNewPassword2" type="password">
+        <button type="button" class="pw-toggle" onclick="togglePassword('resetNewPassword2', this)" aria-label="Show password" aria-pressed="false">
+          <svg class="icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="icon-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
       <button id="btnResetStep2" onclick="setResetPasswordStep()">Set password and sign in</button>
       <div class="message" id="resetError2"></div>
     </div>
@@ -132,6 +181,32 @@
         button.disabled = false;
         button.textContent = originalText;
       };
+    }
+
+    // ---------- Show / hide password ----------
+    // Flips one password field between hidden (dots) and visible (text)
+    // and updates the eye icon + accessibility labels to match.
+    function togglePassword(inputId, toggleBtn) {
+      var input = document.getElementById(inputId);
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggleBtn.classList.toggle('showing', show);
+      toggleBtn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      toggleBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    }
+
+    // Puts every password field back to hidden. Called whenever the
+    // screen changes so a password is never left visible by accident.
+    function resetPasswordVisibility() {
+      var wraps = document.querySelectorAll('.pw-wrap');
+      for (var i = 0; i < wraps.length; i++) {
+        var input = wraps[i].querySelector('input');
+        var btn = wraps[i].querySelector('.pw-toggle');
+        input.type = 'password';
+        btn.classList.remove('showing');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', 'Show password');
+      }
     }
 
     function submitLogin() {
@@ -196,6 +271,7 @@
         document.getElementById(s).classList.add('hidden');
       });
       document.getElementById(id).classList.remove('hidden');
+      resetPasswordVisibility();
     }
 
     function backToLogin() {
