@@ -224,7 +224,7 @@
       <div class="navitem active" id="nav-dashboard" onclick="showPage('dashboard')">Dashboard</div>
       <div class="navitem" id="nav-members" onclick="showPage('members')">Member Record</div>
       <div class="navitem disabled">Loan Portfolio</div>
-      <div class="navitem disabled">Reports</div>
+      <div class="navitem" id="nav-reports" onclick="showPage('reports'); loadReports()">Reports</div>
       <div class="note">Dashboard and Member Record are both live in this v1. Loan Portfolio and Reports are placeholders for a later phase.</div>
       <div class="powered-by">Powered by Veridian Systems</div>
     </div>
@@ -266,6 +266,7 @@
       </div>
 
       <!-- ================= PAGE 2: MEMBER RECORD ================= -->
+      <div class="page" id="page-reports"><div id="reportsBody"><div class="card">Loading…</div></div></div>
       <div class="page" id="page-members">
         <div class="topbar">
           <div>
@@ -624,14 +625,17 @@
       ['🤝', 'Loan Portfolio (Outstanding)', fmt(k.totalLoanPortfolioOutstanding), 'purple'],
       ['📤', 'Total Disbursed', fmt(k.totalDisbursed), 'blue'],
       ['🏗️', 'Loan Disbursed (Current FY)', fmt(k.totalDisbursedCurrentFY), 'blue'],
-      ['📈', 'Interest Earned', fmt(k.totalInterestEarned), 'amber'],
-      ['📅', 'Interest Earned (Current FY)', fmt(k.interestEarnedCurrentFY), 'teal'],
-      ['⏭️', 'Interest Carried Forward (Next FY)', fmt(k.interestCarriedForwardNextFY), 'purple'],
+      ['📈', 'Estimated Profit to be Earned', fmt(k.totalInterestEarned), 'amber'],
+      ['✅', 'Profit Actually Earned', (k.profitActuallyEarned == null ? '—' : fmt(k.profitActuallyEarned)), 'green',
+        (k.pctLoansRepaid == null ? 'Awaiting backend update' : k.pctLoansRepaid + '% of loans repaid')],
+      ['📅', 'Estimated Profit to be Earned (Current FY)', fmt(k.interestEarnedCurrentFY), 'teal'],
+      ['⏭️', 'Estimated Profit Carried Forward (Next FY)', fmt(k.interestCarriedForwardNextFY), 'purple'],
       ['🛡️', 'Recovery Rate', k.recoveryRatePct + '%', 'teal']
     ];
     document.getElementById('kpiRow').innerHTML = kpiIcons.map(function(x) {
       return '<div class="kpi"><div class="icon" style="background:var(--' + x[3] + '-bg);color:var(--' + x[3] + ')">' + x[0] + '</div>' +
-        '<div><div class="label">' + x[1] + '</div><div class="value">' + x[2] + '</div></div></div>';
+        '<div><div class="label">' + x[1] + '</div><div class="value">' + x[2] + '</div>' +
+        (x[4] ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + x[4] + '</div>' : '') + '</div></div>';
     }).join('');
 
     drawChart('savingsChart', 'doughnut', {
@@ -647,12 +651,30 @@
         backgroundColor: ['#00C994', '#0B1229', '#7fe3c8'] }]
     });
 
-    document.getElementById('alertCount').innerText = d.alerts.length + ' active';
+    // Drop the inactive-members notice entirely
+    let alertsShown = (d.alerts || []).filter(function(a) { return !/inactive|dormant|non-active/i.test(a.text || ''); });
+    // Loans-behind alerts: most months behind first. Other alerts keep their place.
+    const monthsBehind = function(a) {
+      const words = { one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12 };
+      const m = /(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]*months?\b/i.exec(a.text || '');
+      if (!m) return null;
+      const v = m[1].toLowerCase();
+      return words[v] || parseInt(v, 10);
+    };
+    const behind = alertsShown.filter(function(a) { return monthsBehind(a) !== null; });
+    if (behind.length > 1) {
+      const firstIdx = alertsShown.findIndex(function(a) { return monthsBehind(a) !== null; });
+      const others = alertsShown.filter(function(a) { return monthsBehind(a) === null; });
+      behind.sort(function(x, y) { return monthsBehind(y) - monthsBehind(x); });
+      others.splice.apply(others, [firstIdx, 0].concat(behind));
+      alertsShown = others;
+    }
+    document.getElementById('alertCount').innerText = alertsShown.length + ' active';
     const alertsEl = document.getElementById('alertsList');
-    if (!d.alerts.length) {
+    if (!alertsShown.length) {
       alertsEl.innerHTML = '<div class="alert-row">No active alerts.</div>';
     } else {
-      alertsEl.innerHTML = d.alerts.map(function(a) {
+      alertsEl.innerHTML = alertsShown.map(function(a) {
         return '<div class="alert-row"><span class="badge ' + a.level + '">' + a.level.toUpperCase() + '</span><span>' + a.text + '</span></div>';
       }).join('');
     }
@@ -685,6 +707,29 @@
       (d.monthlyTrend[0] ? d.monthlyTrend[0].month : '—') + ' to ' +
       (d.monthlyTrend[d.monthlyTrend.length - 1] ? d.monthlyTrend[d.monthlyTrend.length - 1].month : '—') +
       '). Figures are computed live from the sheet, not cached.';
+  }
+
+
+  function loadReports() {
+    callApi('getExecReports', { token: currentToken }).then(function(r) {
+      const el = document.getElementById('reportsBody');
+      if (!r || r.error) { el.innerHTML = '<div class="card"><p style="color:var(--red);font-size:13px;">' + ((r && r.error) || 'No data returned. Add ExecReports.gs and the router case, then redeploy.') + '</p></div>'; return; }
+      const e = r.equity, tot = e.completed.value + e.paying.contributed;
+      const sec = function(t, body) { return '<details class="card" open style="margin-bottom:14px;"><summary style="font-weight:700;cursor:pointer;">' + t + '</summary><div style="margin-top:12px;">' + body + '</div></details>'; };
+      const row = function(l, v) { return '<div class="row"><span class="label">' + l + '</span><span class="value">' + v + '</span></div>'; };
+      let eqH = row('Completed members', e.completed.count + ' × 180,000 = ' + fmt(e.completed.value)) +
+        row('Still paying (' + e.paying.count + ' members): contributed', fmt(e.paying.contributed)) +
+        row('Still paying: outstanding', fmt(e.paying.outstanding)) +
+        row('<strong>Equity valuation (active members)</strong>', '<strong>' + fmt(tot) + '</strong>');
+      if (e.flags.length) eqH += '<div style="margin-top:12px;"><span class="badge high">ATTENTION</span> <span style="font-size:12.5px;">' + e.flags.length + ' equity record(s) need data-entry correction</span>' +
+        '<table style="margin-top:8px;"><thead><tr><th>Member</th><th>Balance</th><th>Outstanding</th><th>Issue</th></tr></thead><tbody>' +
+        e.flags.map(function(f) { return '<tr><td>' + escapeHtml(f.name) + ' (' + escapeHtml(f.id) + ')</td><td>' + fmt(f.balance) + '</td><td>' + fmt(f.outstanding) + '</td><td>' + escapeHtml(f.reason) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      const bar = function(b) { return '<div style="margin-bottom:14px;"><div class="row"><span class="label"><strong>' + b.month + '</strong> · ' + b.loans + ' loans · ' + fmt(b.disbursed) + ' disbursed</span><span class="value">' + b.recoveredPct + '% recovered</span></div>' +
+        '<div class="progress-bg" style="position:relative;"><div class="progress-fill" style="width:' + Math.min(100, b.recoveredPct) + '%"></div><div title="Expected by now: ' + b.expectedPct + '%" style="position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--navy);left:' + Math.min(100, b.expectedPct) + '%"></div></div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + fmt(b.repaid) + ' repaid · expected by now ' + b.expectedPct + '%</div></div>'; };
+      const nm = '<table><thead><tr><th>Month</th><th>New members</th></tr></thead><tbody>' + r.newMembers.map(function(n) { return '<tr><td>' + n.month + '</td><td>' + n.count + '</td></tr>'; }).join('') + '</tbody></table>';
+      el.innerHTML = sec('Savings · Equity', eqH) + sec('Loans · Recovery by disbursement month', r.loanBatches.map(bar).join('') || 'No loans yet.') + sec('Members · New members per month', nm);
+    }).catch(function(err) { document.getElementById('reportsBody').innerHTML = '<div class="card">Could not load reports: ' + err.message + '</div>'; });
   }
 
   function drawChart(id, type, data) {
