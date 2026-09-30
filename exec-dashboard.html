@@ -615,7 +615,7 @@
       renderDashboard(d);
       callApi('getExecReports', { token: currentToken }).then(function(r) {
         if (d && d.kpis && r && r.profit) {
-          d.kpis.profitActuallyEarned = r.profit.earned;
+          d.kpis.profitActuallyEarned = (r.profit.earnedFY != null ? r.profit.earnedFY : r.profit.earned);
           d.kpis.pctLoansRepaid = r.profit.pctRepaid;
           renderDashboard(d);
         }
@@ -635,7 +635,7 @@
       ['📤', 'Total Disbursed', fmt(k.totalDisbursed), 'blue'],
       ['🏗️', 'Loan Disbursed (Current FY)', fmt(k.totalDisbursedCurrentFY), 'blue'],
       ['📈', 'Estimated Profit to be Earned', fmt(k.totalInterestEarned), 'amber'],
-      ['✅', 'Profit Actually Earned', (k.profitActuallyEarned == null ? '—' : fmt(k.profitActuallyEarned)), 'green',
+      ['✅', 'Profit Actually Earned (Current FY)', (k.profitActuallyEarned == null ? '—' : fmt(k.profitActuallyEarned)), 'green',
         (k.pctLoansRepaid == null ? 'Awaiting backend update' : k.pctLoansRepaid + '% of loans repaid')],
       ['📅', 'Estimated Profit to be Earned (Current FY)', fmt(k.interestEarnedCurrentFY), 'teal'],
       ['⏭️', 'Estimated Profit Carried Forward (Next FY)', fmt(k.interestCarriedForwardNextFY), 'purple'],
@@ -743,7 +743,7 @@
       const lastFY = S.length ? S[S.length - 1].fy : null, thriftRows = S.filter(function(x) { return x.fy === lastFY; });
       eqH += '<h4 style="margin:16px 0 8px;">Monthly equity inflow</h4>' + bars(S, 'equity', 'equityHeld');
       el.innerHTML = sec('Savings · Equity', eqH) + sec('Savings · CCCF (lifetime)', bars(S, 'cccf', 'cccfHeld')) +
-        sec('Savings · Thrift (FY ' + (lastFY ? 'Dec ' + (lastFY - 1) + ' – Nov ' + lastFY : '') + ')', bars(thriftRows, 'thrift', 'thriftHeld')) + sec('Loans · Recovery by disbursement month', r.loanBatches.map(bar).join('') || 'No loans yet.') + sec('Members · New members per month', nm);
+        sec('Savings · Thrift (FY ' + (lastFY ? 'Dec ' + (lastFY - 1) + ' – Nov ' + lastFY : '') + ')', bars(thriftRows, 'thrift', 'thriftHeld')) + sec('Loans · Recovery by disbursement month', (r.profit ? row('Profit actually earned since inception', fmt(r.profit.earned)) + '<div style="height:10px"></div>' : '') + (r.loanBatches.map(bar).join('') || 'No loans yet.')) + sec('Members · New members per month', nm);
     }).catch(function(err) { document.getElementById('reportsBody').innerHTML = '<div class="card">Could not load reports: ' + err.message + '</div>'; });
   }
 
