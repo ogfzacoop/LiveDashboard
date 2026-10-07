@@ -787,9 +787,18 @@
         ['Total (' + rows.length + ' loans)', '', fmt(sum('amount')), fmt(sum('interest')), fmt(sum('interestEarned')), fmt(sum('paid')), fmt(sum('outstanding')), '']);
     } else if (lp.view === 'behind') {
       const rows = L.filter(function(l) { return l.monthsBehind > 0; }).sort(function(a, b) { return b.monthsBehind - a.monthsBehind; });
-      body = lpTable(['Borrower', 'Loan ID', 'Missed months', 'Monthly deduction', 'Total loan', 'Outstanding'],
-        rows.map(function(l) { return [lpEsc(l.name), lpEsc(l.loanId), (l.missedMonths && l.missedMonths.length ? l.missedMonths.map(chip).join(' ') : '<strong>' + l.monthsBehind + '</strong>'), fmt(l.monthlyDeduction), fmt(l.totalRepayment), fmt(l.outstanding)]; }),
-        ['Total (' + rows.length + ' loans)', '', '', fmt(rows.reduce(function(a, l) { return a + l.monthlyDeduction; }, 0)), fmt(rows.reduce(function(a, l) { return a + l.totalRepayment; }, 0)), fmt(rows.reduce(function(a, l) { return a + l.outstanding; }, 0))]);
+      body = lpTable(['Borrower', 'Loan ID', 'Missed months', 'Monthly deduction', 'Amount due now', 'Total loan', 'Outstanding'],
+        rows.map(function(l) { return [lpEsc(l.name), lpEsc(l.loanId), (l.missedMonths && l.missedMonths.length ? l.missedMonths.map(chip).join(' ') : '<strong>' + l.monthsBehind + '</strong>'), fmt(l.monthlyDeduction), '<strong>' + fmt(l.amountDueNow != null ? l.amountDueNow : l.monthsBehind * l.monthlyDeduction) + '</strong>', fmt(l.totalRepayment), fmt(l.outstanding)]; }),
+        ['Total (' + rows.length + ' loans)', '', '', fmt(rows.reduce(function(a, l) { return a + l.monthlyDeduction; }, 0)), fmt(rows.reduce(function(a, l) { return a + (l.amountDueNow != null ? l.amountDueNow : l.monthsBehind * l.monthlyDeduction); }, 0)), fmt(rows.reduce(function(a, l) { return a + l.totalRepayment; }, 0)), fmt(rows.reduce(function(a, l) { return a + l.outstanding; }, 0))]);
+    } else if (lp.view === 'short') {
+      const rows = L.filter(function(l) { return l.shortTotal > 0; }).sort(function(a, b) { return b.shortTotal - a.shortTotal; });
+      const mlabel = function(k) { return new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleString('en-GB', { month: 'short' }).toUpperCase(); };
+      body = lpTable(['Borrower', 'Loan ID', 'Months short', 'Supposed to pay', 'Actually paid', 'Shortfall'],
+        rows.map(function(l) { const sm = l.shortMonths;
+          return [lpEsc(l.name), lpEsc(l.loanId),
+            sm.map(function(x) { return '<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:#fff4e0;color:#b25e00;font-size:10.5px;font-weight:700;" title="Short by ' + fmt(x.short) + '">' + mlabel(x.month) + '</span>'; }).join(' '),
+            fmt(sm.reduce(function(a, x) { return a + x.due; }, 0)), fmt(sm.reduce(function(a, x) { return a + x.paid; }, 0)), '<strong>' + fmt(l.shortTotal) + '</strong>']; }),
+        ['Total (' + rows.length + ' members)', '', '', fmt(rows.reduce(function(a, l) { return a + l.shortMonths.reduce(function(b, x) { return b + x.due; }, 0); }, 0)), fmt(rows.reduce(function(a, l) { return a + l.shortMonths.reduce(function(b, x) { return b + x.paid; }, 0); }, 0)), fmt(rows.reduce(function(a, l) { return a + l.shortTotal; }, 0))]);
     } else {
       const M = {}; (lp.d.monthly || []).forEach(function(m) { M[m.month] = m; });
       const rows = months.map(function(k) { const m = M[k] || {}; const cl = L.filter(function(l) { return l.startMonth === k && l.liquidated; }).length;
@@ -800,9 +809,9 @@
     const btn = function(v, l) { return '<button onclick="lpSet(\'view\',\'' + v + '\')" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border,#ccd);cursor:pointer;font-weight:600;' + (lp.view === v ? 'background:var(--navy);color:#fff;' : 'background:#fff;') + '">' + l + '</button>'; };
     const sel = 'padding:8px;border-radius:8px;border:1px solid #ccd;';
     document.getElementById('lpBody').innerHTML = '<div class="card"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;">' +
-      btn('disbursed', 'Disbursed loans') + btn('behind', 'Behind schedule') + btn('audit', 'Audit (month by month)') +
+      btn('disbursed', 'Disbursed loans') + btn('behind', 'Behind schedule') + btn('short', 'Short-paid') + btn('audit', 'Audit (month by month)') +
       '<button onclick="lpExport()" style="margin-left:auto;padding:8px 14px;border-radius:8px;border:1px solid #ccd;background:#fff;cursor:pointer;">⬇ Export CSV</button></div>' +
-      (lp.view === 'behind' ? '' : '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"><select style="' + sel + '" onchange="lpSet(\'fy\',+this.value)">' +
+      ((lp.view === 'behind' || lp.view === 'short') ? '' : '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"><select style="' + sel + '" onchange="lpSet(\'fy\',+this.value)">' +
         Object.keys(fys).sort().map(function(y) { return '<option value="' + y + '"' + (+y === fy ? ' selected' : '') + '>FY Dec ' + (y - 1) + ' – Nov ' + y + '</option>'; }).join('') + '</select>' +
         (lp.view === 'disbursed' ? '<select style="' + sel + '" onchange="lpSet(\'month\',this.value)"><option value="all">All months</option>' +
           months.map(function(k) { return '<option value="' + k + '"' + (k === lp.month ? ' selected' : '') + '>' + mName(k) + '</option>'; }).join('') + '</select>' : '') + '</div>') +
